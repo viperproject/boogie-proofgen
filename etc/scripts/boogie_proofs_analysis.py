@@ -3,6 +3,9 @@ import argparse
 import typing as typ
 from enum import Enum
 from typing import List
+import csv
+import time
+import re
 
 class EndToEndKind(Enum):
     full = 1
@@ -11,7 +14,7 @@ class EndToEndKind(Enum):
 
 class TestData(typ.NamedTuple):
     file: str
-    num_procedures: int
+    num_procedure_proofs: int
     isabelle_loc: int
     end_to_end_proof: List[EndToEndKind] 
     # for each procedure proof provides end-to-end proof kind (i.e., length should match num_procedures)
@@ -72,13 +75,22 @@ def certificate_size(proof_dir_path) -> int:
             if file.endswith('.thy'):
                 file_path = os.path.join(os.path.join(proof_dir_path, root), file)
                 file_content = open(file_path, "r")
-                nonempty_lines = [line for line in file_content if line.strip() != "\n"]
+                nonempty_lines = [line for line in file_content if line.strip()]
                 length_certificate += len(nonempty_lines)
     
     return length_certificate
+    
+def count_num_abstract_procs(lines) -> int:
+    count = 0
+    regex_pattern = r'procedure \w*\((\w|:)*\);'
+    for line in lines:
+        matches = re.findall(regex_pattern, line)
+        count += len(matches)
+    return count
 
 def collect_data_single_boogie_file(proof_dir_path, num_procedures):
     e2e_proof_kinds = []
+    num_procedure_proofs = 0
     for procedure_proof in os.listdir(proof_dir_path):
         procedure_proof_path = os.path.join(proof_dir_path, procedure_proof)
         if(os.path.isdir(procedure_proof_path)):
@@ -89,12 +101,15 @@ def collect_data_single_boogie_file(proof_dir_path, num_procedures):
             procedure_name = procedure_proof.split("_proofs")[0]
             e2e_proof_kind = get_e2e_kind(procedure_name, procedure_proof_path)
             e2e_proof_kinds.append(e2e_proof_kind)
+            num_procedure_proofs += 1
     
+    """
     if len(e2e_proof_kinds) != num_procedures:
         print("ERROR: mismatch number of procedures and e2e proofs in {}".format(proof_dir_path))
         exit(1)
+    """
 
-    return TestData(file=os.path.basename(proof_dir_path), num_procedures=num_procedures, isabelle_loc=certificate_size(proof_dir_path),end_to_end_proof=e2e_proof_kinds)
+    return TestData(file=os.path.basename(proof_dir_path), num_procedure_proofs=num_procedure_proofs, isabelle_loc=certificate_size(proof_dir_path),end_to_end_proof=e2e_proof_kinds)
 
 def collect_complete_data(boogie_files_dir, boogie_proofs_dir) -> List[TestData]:
     data = []
@@ -112,20 +127,48 @@ def collect_complete_data(boogie_files_dir, boogie_proofs_dir) -> List[TestData]
         boogie_file_name = proof_dir.split("_proofs")[0]+".bpl"
         boogie_file_path = os.path.join(boogie_files_dir, boogie_file_name)
         if not(os.path.isfile(boogie_file_path)):
-            print("ERROR: Boogie file {} does not exist".format(boogie_file_path))
-            exit(1)
+            # try finding any file with the same name
+            
+            candidates = [os.path.join(root,f) for root, dirs, files in os.walk(boogie_files_dir) for f in files if f == boogie_file_name]
+            if len(candidates) == 0:
+                print("ERROR: Boogie file {} does not exist".format(boogie_file_name))
+                exit(1)
+            elif len(candidates) >= 2:
+                print("ERROR: Multiple candidates for Boogie file {}".format(boogie_file_name))
+                exit(1)
+            
+            boogie_file_path = os.path.join(boogie_files_dir, candidates[0])
+            if(not(os.path.exists(boogie_file_path))):
+                print("CODE ERROR: file {} does not exist".format(boogie_file_path))
+                exit(1)                
 
         boogie_file_content = [line for line in open(boogie_file_path,'r')]
         num_procedures = len([line for line in boogie_file_content if line.strip(" ").startswith("procedure ")])
-
-        if num_procedures != len([y for y in os.listdir(proof_dir_path) if os.path.isdir(os.path.join(proof_dir_path, y))]):
-            print("ERROR: Number of procedures and number of proofs do not match for {}".format(proof_dir_path))
-            exit(1)
+        num_abstract_procedures = count_num_abstract_procs(boogie_file_content) #TODO: this computation of abstract procedures is incorrect
+        num_concrete_procedures = num_procedures - num_abstract_procedures
         
-        data.append(collect_data_single_boogie_file(proof_dir_path, num_procedures))
+        #if num_abstract_procedures > 0:
+            #print("{} has {} abstract procedures".format(boogie_file_path, num_abstract_procedures))
+        
+        """
+        if num_concrete_procedures != len([y for y in os.listdir(proof_dir_path) if os.path.isdir(os.path.join(proof_dir_path, y))]):
+            print("ERROR: Number of non-abstract procedures in {} do not match number of proofs in {}".format(boogie_file_path, proof_dir_path))
+            exit(1)
+        """
+        
+        data.append(collect_data_single_boogie_file(proof_dir_path, num_concrete_procedures))
 
     return data
             
+def write_data_into_csv(data : List[TestData], output_file):
+    with open(output_file, 'w', newline='') as output:
+        writer = csv.writer(output, delimiter=',')
+
+        writer.writerow(["File", "# Procs", "Isabelle LOC", "E2E Kind"])
+        for d in data:
+            e2e_repr = " ".join(e.name for e in d.end_to_end_proof)
+            writer.writerow([d.file, d.num_procedure_proofs, d.isabelle_loc, e2e_repr])
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -152,6 +195,13 @@ def main():
         exit(1)
 
     data : List[TestData] = collect_complete_data(boogie_files_dir=args.testsdir, boogie_proofs_dir=args.proofsdir)
+    
+    num_boogie_files = len([f for root, dirs, files in os.walk(args.testsdir) for f in files if f.endswith(".bpl")])
+    if(len(data) != num_boogie_files):
+        print("ERROR: length of data does not match number of Boogie files")
+        exit(1)
+        
+    print("Numer of E2E proofs {}".format(len(data)))
 
     def count_e2e_kind(kind):
         return sum([len([k for k in d.end_to_end_proof if k == kind]) for d in data])
@@ -166,12 +216,14 @@ def main():
         num_only_cfg_proofs
     ))
 
-    total_num_procedures = sum([d.num_procedures for d in data])
+    total_num_procedure_proofs = sum([d.num_procedure_proofs for d in data])
 
-    if((num_full_proofs + num_ast_and_full_cfgproofs + num_only_cfg_proofs) != total_num_procedures):
+    if((num_full_proofs + num_ast_and_full_cfgproofs + num_only_cfg_proofs) != total_num_procedure_proofs):
         print("ERROR: sum of E2E kinds does not match with length of data")
         exit(1)
     
+    output_file_name = time.strftime("%Y%m%d_%H%M")+os.path.basename(args.proofsdir)+"_analysis.csv"
+    write_data_into_csv(data, output_file_name)
 
 
 if __name__ == '__main__':
