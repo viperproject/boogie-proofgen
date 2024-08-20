@@ -460,7 +460,7 @@ namespace Microsoft.Boogie
           FillEmptyElseBranches(thenBb);
         }
 
-        if (ifcmd.elseBlock == null)
+        if (ifcmd.elseIf == null && ifcmd.elseBlock == null)
         {
           IList<BigBlock> emptyElseBranch = new List<BigBlock>();
           BigBlock emptyElseBranchBigBlock = new BigBlock(Token.NoToken, null, new List<Cmd>(), null, null);
@@ -471,9 +471,12 @@ namespace Microsoft.Boogie
           ifcmd.elseBlock = new StmtList(emptyElseBranch, Token.NoToken);
         }
 
-        foreach (var elseBb in ifcmd.elseBlock.BigBlocks)
+        if (ifcmd.elseBlock != null)
         {
-          FillEmptyElseBranches(elseBb);
+          foreach (var elseBb in ifcmd.elseBlock.BigBlocks)
+          {
+            FillEmptyElseBranches(elseBb);
+          }
         }
       }
       else if (b.ec is WhileCmd wcmd)

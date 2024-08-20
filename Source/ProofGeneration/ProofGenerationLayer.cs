@@ -144,12 +144,12 @@ namespace ProofGeneration
             }
         }
 
-        private static bool AstContainsGotoOrBreak(AstToCfgProofGenInfo proofGenInfo)
+        private static bool AstContainsGotoOrBreakOrElseIf(AstToCfgProofGenInfo proofGenInfo)
         {
           IList<BigBlock> ast = proofGenInfo.GetBigBlocks();
           foreach (var b in ast)
           {
-            if (b.ec is BreakCmd || b.tc is GotoCmd)
+            if (b.ec is BreakCmd || b.tc is GotoCmd || (b.ec is IfCmd bIf && bIf.elseIf != null))
             {
               return true;
             }
@@ -580,7 +580,7 @@ namespace ProofGeneration
             var map = AstToCfgProofGenInfoManager.GetImplToProofGenInfo();
             proofGenInfo = map[afterPassificationImpl];
 
-            if (AstContainsGotoOrBreak(proofGenInfo))
+            if (AstContainsGotoOrBreakOrElseIf(proofGenInfo))
             {
               _proofGenConfig.SetAstCfgProof(false);
             }
