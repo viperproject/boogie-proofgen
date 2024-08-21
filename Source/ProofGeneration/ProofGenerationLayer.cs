@@ -483,6 +483,17 @@ namespace ProofGeneration
                 return;
             cfgToDagHintManager.AddNewBackedgeBlock(newBackedgeBlock, loopHead);
         }
+        
+        /// <summary>
+        /// Provide hint that the pre loop entry block <paramref name="oldPreLoopEntryBlock"/> is replaced by a new
+        /// pre entry loop block <paramref name="newPreLoopEntryBlock"/> for a loop with loop head <paramref name="loopHead"/>.
+        /// </summary>
+        public static void NewPreLoopEntryBlock(Block oldPreLoopEntryBlock, Block newPreLoopEntryBlock, Block loopHead)
+        {
+            if (CommandLineOptions.Clo.OnlyGenerateInitialProgramIsa())
+                return;
+            cfgToDagHintManager.AddNewPreLoopEntryBlock(newPreLoopEntryBlock, loopHead);
+        }
 
         public static void SetTypeEraserFactory(TypePremiseEraserFactory factory)
         {

@@ -15,6 +15,10 @@ namespace ProofGeneration.CfgToDag
 
         //maps backedge nodes which are not present before the CFG-to-DAG to the corresponding loop head
         private readonly IDictionary<Block, Block> newBackedgeNodesToLoopHead = new Dictionary<Block, Block>();
+        
+        //maps nodes before entry to loop which are not present before CFG-to-DAG to the corresponding loop head
+        private readonly IDictionary<Block, Block> newPreLoopNodesToLoopHead = new Dictionary<Block, Block>();
+        
         private readonly IDictionary<Block, Block> origToBeforeDag;
 
         private IDictionary<Block, Block> _afterDagToOrig;
@@ -53,7 +57,13 @@ namespace ProofGeneration.CfgToDag
         {
             newBackedgeNodesToLoopHead.Add(newBackedgeBlock, loopHead);
         }
-
+        
+        /// <param name="newPreLoopEntryBlock">pre loop entry block that is newly added in the CFG-to-DAG phase.</param>
+        /// <param name="loopHead">corresponding loop head</param>
+        public void AddNewPreLoopEntryBlock(Block newPreLoopEntryBlock, Block loopHead)
+        {
+            newPreLoopNodesToLoopHead.Add(newPreLoopEntryBlock, loopHead);
+        }
 
         public bool IsNewBackedgeBlock(Block afterDagBlock, out LoopHeadHint loopHeadHint)
         {
@@ -78,15 +88,20 @@ namespace ProofGeneration.CfgToDag
             beforeDagLoopHead = null;
             return false;
         }
-
-        public bool IsLoopHead(Block block, out LoopHeadHint hint)
+        
+        public bool IsNewPreLoopEntryBlock(Block afterDagBlock)
         {
-            return loopHeadHints.TryGetValue(beforeDagToOrig[block], out hint);
+          return newPreLoopNodesToLoopHead.ContainsKey(_afterDagToOrig[afterDagBlock]);
         }
 
-        public LoopHeadHint GetLoopHead(Block block)
+        public bool IsLoopHead(Block beforeDagBlock, out LoopHeadHint hint)
         {
-            return loopHeadHints[beforeDagToOrig[block]];
+            return loopHeadHints.TryGetValue(beforeDagToOrig[beforeDagBlock], out hint);
+        }
+
+        public LoopHeadHint GetLoopHead(Block beforeDagBlock)
+        {
+            return loopHeadHints[beforeDagToOrig[beforeDagBlock]];
         }
     }
 }

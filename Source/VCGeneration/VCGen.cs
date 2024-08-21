@@ -1263,6 +1263,10 @@ namespace VC
               backEdgeNodes.Add(newBlock, null);
               ProofGenerationLayer.NewBackedgeBlock(pred, newBlock, header);
             }
+            else
+            {
+              ProofGenerationLayer.NewPreLoopEntryBlock(pred, newBlock, header);
+            }
 
             pred = newBlock;
           }

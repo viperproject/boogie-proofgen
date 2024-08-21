@@ -797,22 +797,36 @@ namespace ProofGeneration.CfgToDag
                     }
                     else
                     {
-                        /* need to find the empty block that was added in between (does not matter which one, if there
-                         * are multiple such empty blocks) */
+                        // need to find the empty block that was added in between 
+                        var bSucAfterIsLoopHead = hintManager.IsLoopHead(bSuc, out _);
+                        
                         foreach (var afterSuc in afterSuccessors)
                         {
                             var afterSucSuccessors = afterDagCfg.GetSuccessorBlocks(afterSuc);
-                            if (!afterSuc.Cmds.Any() && afterSucSuccessors.Count() == 1 &&
-                                afterSucSuccessors.First().Equals(bSucAfter))
+                            
+                            // block in between must have a single expected successor
+                            if (afterSucSuccessors.Count() != 1  || !afterSucSuccessors.First().Equals(bSucAfter))
+                            {
+                              continue;
+                            }
+
+                            /** if expected successor is not a loop head, then the block in between must be empty,
+                             *  otherwise the block in between must be a new pre entry loop block (which asserts the loop invariant)
+                             */
+                            if ( (!bSucAfterIsLoopHead && !afterSuc.Cmds.Any()) 
+                                ||
+                                 (bSucAfterIsLoopHead && hintManager.IsNewPreLoopEntryBlock(afterSuc)) )
                             {
                                 addedBlock = afterSuc;
-                                break;
-                            }
+                                break; //if there are multiple blocks that satisfy the criteria, then we can pick any, so break here
+                            } 
                         }
 
                         if (addedBlock == null)
-                            throw new ProofGenUnexpectedStateException("Could not find block");
-
+                        {
+                          throw new ProofGenUnexpectedStateException("Could not find new target block added in between two source blocks");
+                        }
+                          
                         bSucAfterId = afterDagProgAccess.BlockInfo().BlockIds[addedBlock];
                     }
 
