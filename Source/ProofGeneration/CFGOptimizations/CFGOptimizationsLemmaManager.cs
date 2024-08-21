@@ -533,8 +533,9 @@ public class CFGOptimizationsLemmaManager
     {
       "apply (rule loopHead_global_block_hybrid)",
       "apply (rule " + beforeOptProgAccess.BlockInfo().OutEdgesMembershipLemma(beforeBlock) + ")",
-      "apply simp",
-      "apply (rule " + HybridblockLemmaName(beforeOptimizations.GetSuccessorBlocks(beforeBlock).FirstOrDefault()) + ")",
+      "apply (rule " + ProofUtil.OF("hybrid_block_lemma_loop_eq_loop_heads", 
+        HybridblockLemmaName(beforeOptimizations.GetSuccessorBlocks(beforeBlock).FirstOrDefault())) + ")",
+      "apply blast",
       "apply (rule " + beforeOptProgAccess.BlockInfo().BlockCmdsMembershipLemma(beforeBlock) + ")",
       "apply (rule " + afterOptProgAccess.BlockInfo().BlockCmdsMembershipLemma(afterBlock) + ")",
       "apply (unfold " + afterOptProgAccess.BlockInfo().CmdsQualifiedName(afterBlock) +"_def)"
