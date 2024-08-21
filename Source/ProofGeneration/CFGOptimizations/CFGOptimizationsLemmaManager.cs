@@ -629,12 +629,10 @@ public class CFGOptimizationsLemmaManager
       );
   }
 
-
-  
-  
-  
   public static Term getConclusion(List<string> loopHeads, string name, Block beforeBlock, Block afterBlock, IProgramAccessor beforeOptProgAccess, IProgramAccessor afterOptProgAccess, bool isHybridBlock, List<String> listCoalescedBlocks)
   {
+    var loopHeadsSet = new TermSet(loopHeads.Select(lh => IsaCommonTerms.TermIdentFromName(lh)));
+    
     var varContextName = "\\<Lambda>";
     IList<Term> terms = new List<Term>();
     terms.Add(IsaCommonTerms.TermIdentFromName("A"));
@@ -648,9 +646,11 @@ public class CFGOptimizationsLemmaManager
     terms.Add(new NatConst(afterOptProgAccess.BlockInfo().BlockIds[afterBlock]));
     if (isHybridBlock)
     {
-      terms.Add(IsaCommonTerms.TermIdentFromName("(" + string.Join("@", listCoalescedBlocks) + ")"));
+      var listCoalescedBlocksTerm = listCoalescedBlocks.Aggregate<String, Term>(IsaCommonTerms.EmptyList,
+        (x, y) => IsaCommonTerms.AppendList(x, IsaCommonTerms.TermIdentFromName(y)));
+      terms.Add(listCoalescedBlocksTerm);
     }
-    terms.Add(IsaCommonTerms.TermIdentFromName("{" + string.Join(",", loopHeads) + "}"));
+    terms.Add(loopHeadsSet);
     terms.Add(afterOptProgAccess.PostconditionsDecl());
     Term conclusion = new TermApp(IsaCommonTerms.TermIdentFromName(name), terms);
     return conclusion;
