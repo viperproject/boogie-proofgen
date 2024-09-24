@@ -79,7 +79,7 @@ namespace ProofGeneration
         private static Block uniqueExitBlockOrig;
 
         //new ProofGenConfig().AllOptionsDisabled().SetCfgOptProof(true);
-        private static ProofGenConfig _proofGenConfig = new ProofGenConfig().AllOptionsEnabled();
+        //
         //private static ProofGenConfig _proofGenConfig = new ProofGenConfig().AllOptionsDisabled().SetCfgOptProof(true);
 
         private static IProgramAccessor globalDataProgAccess;
@@ -590,6 +590,7 @@ namespace ProofGeneration
         {
             var map = AstToCfgProofGenInfoManager.GetImplToProofGenInfo();
             proofGenInfo = map[afterPassificationImpl];
+            ProofGenConfig _proofGenConfig = new ProofGenConfig().AllOptionsEnabled();
 
             if (AstContainsGotoOrBreakOrElseIf(proofGenInfo))
             {
