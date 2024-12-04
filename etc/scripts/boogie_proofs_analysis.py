@@ -15,6 +15,7 @@ class EndToEndKind(Enum):
 class TestData(typ.NamedTuple):
     file: str
     num_procedure_proofs: int
+    boogie_loc: int
     isabelle_loc: int
     end_to_end_proof: List[EndToEndKind] 
     # for each procedure proof provides end-to-end proof kind (i.e., length should match num_procedures)
@@ -68,15 +69,18 @@ def get_e2e_kind(procedure_name, dir) -> EndToEndKind:
     print("ERROR: no end-to-end theorem found in {}".format(dir))
     exit(1)
 
+def count_non_empty_lines(file_path):
+    file_content = open(file_path, "r")
+    nonempty_lines = [line for line in file_content if line.strip()]
+    return len(nonempty_lines)
+
 def certificate_size(proof_dir_path) -> int:
     length_certificate = 0
     for root, dirs, files in os.walk(proof_dir_path):        
         for file in files:
             if file.endswith('.thy'):
                 file_path = os.path.join(os.path.join(proof_dir_path, root), file)
-                file_content = open(file_path, "r")
-                nonempty_lines = [line for line in file_content if line.strip()]
-                length_certificate += len(nonempty_lines)
+                length_certificate += count_non_empty_lines(file_path)
     
     return length_certificate
     
@@ -88,7 +92,7 @@ def count_num_abstract_procs(lines) -> int:
         count += len(matches)
     return count
 
-def collect_data_single_boogie_file(proof_dir_path, num_procedures):
+def collect_data_single_boogie_file(proof_dir_path, boogie_loc):
     e2e_proof_kinds = []
     num_procedure_proofs = 0
     for procedure_proof in os.listdir(proof_dir_path):
@@ -109,7 +113,7 @@ def collect_data_single_boogie_file(proof_dir_path, num_procedures):
         exit(1)
     """
 
-    return TestData(file=os.path.basename(proof_dir_path), num_procedure_proofs=num_procedure_proofs, isabelle_loc=certificate_size(proof_dir_path),end_to_end_proof=e2e_proof_kinds)
+    return TestData(file=os.path.basename(proof_dir_path), num_procedure_proofs=num_procedure_proofs, boogie_loc = boogie_loc, isabelle_loc=certificate_size(proof_dir_path),end_to_end_proof=e2e_proof_kinds)
 
 def collect_complete_data(boogie_files_dir, boogie_proofs_dir) -> List[TestData]:
     data = []
@@ -144,8 +148,6 @@ def collect_complete_data(boogie_files_dir, boogie_proofs_dir) -> List[TestData]
 
         boogie_file_content = [line for line in open(boogie_file_path,'r')]
         num_procedures = len([line for line in boogie_file_content if line.strip(" ").startswith("procedure ")])
-        num_abstract_procedures = count_num_abstract_procs(boogie_file_content) #TODO: this computation of abstract procedures is incorrect
-        num_concrete_procedures = num_procedures - num_abstract_procedures
         
         #if num_abstract_procedures > 0:
             #print("{} has {} abstract procedures".format(boogie_file_path, num_abstract_procedures))
@@ -156,7 +158,7 @@ def collect_complete_data(boogie_files_dir, boogie_proofs_dir) -> List[TestData]
             exit(1)
         """
         
-        data.append(collect_data_single_boogie_file(proof_dir_path, num_concrete_procedures))
+        data.append(collect_data_single_boogie_file(proof_dir_path, count_non_empty_lines(boogie_file_path)))
 
     return data
             
@@ -164,10 +166,10 @@ def write_data_into_csv(data : List[TestData], output_file):
     with open(output_file, 'w', newline='') as output:
         writer = csv.writer(output, delimiter=',')
 
-        writer.writerow(["File", "# Procs", "Isabelle LOC", "E2E Kind"])
+        writer.writerow(["File", "# Procs", "Boogie LOC", "Isabelle LOC", "E2E Kind"])
         for d in data:
             e2e_repr = " ".join(e.name for e in d.end_to_end_proof)
-            writer.writerow([d.file, d.num_procedure_proofs, d.isabelle_loc, e2e_repr])
+            writer.writerow([d.file, d.num_procedure_proofs, d.boogie_loc, d.isabelle_loc, e2e_repr])
 
 
 def main():
