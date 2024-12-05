@@ -7,7 +7,7 @@ supported subset).
 
 The goal of this project is to increase the reliability of the Boogie verifier.
 Whenever the tool is run on a program, the proof generation extension generates 
-an Isabelle proof that shows a transformed version of the input program is 
+an Isabelle proof that shows that the input program is 
 correct under the assumption of the VC that Boogie generates.
 
 Most of the source code in the `Source` folder is directly forked from the original
@@ -22,7 +22,8 @@ Boogie performs various transformations on the input program before finally
 generating an AST. For the default Boogie options, the steps performed by 
 Boogie are roughly as follows (and also in this order):
 
-1. Parse source AST program to an internal CFG representation (from this point onwards
+1. Parse input program into AST representation
+1. Transform AST program to an internal CFG representation (from this point onwards
 only CFG representations are used)
 2. Basic transformations 1: eliminate dead variables, coalesce blocks, prune unreachable blocks
 3. CFG-to-DAG phase: eliminate cycles via loop invariants
@@ -34,9 +35,12 @@ constant propagation
 6. Basic transformations 3: Remove empty blocks, prune unreachable blocks
 7. VC phase: generate VC using weakest precondition
 
-Our certificate shows for each procedure that the CFG right before the CFG-to-DAG 
-phase is correct under the assumption of the VC. That is, we support all the 
-transformation listed above except those listed in points 1 and 2.
+For a large part of our supported subset, our generated certificate shows that the input Boogie program represented
+as an AST program (i.e., the representation after parsing) is correct under the assumption of the VC.
+For some parts of our subset, we support only the validation of a subset of the transformation:
+In particular, we currently do not support gotos and breaks in the AST-to-CFG transformation, and we also do not support the elimination of dead variables.
+If the input program has gotos or breaks, and dead variables, then our generated certificate shows that the CFG representation *after* dead variable elimination (but before block coalescing)
+is correct under the assumption of the VC (so, we can handle representations of gotos and breaks in CFGs).
 
 ## Modifications to the VC
 We change the VC that Boogie generates in the following ways:
@@ -59,14 +63,11 @@ language features, we currently support:
 * Most operations on integers/booleans
 * Type and value quantification
 * Old expressions
-* Any gotos/labels/while loops that Boogie accepts
+* Any gotos/labels/while loops that Boogie accepts for the CFG transformations (but not yet for the AST-to-CFG transformation)
 * Commands: assertions, assumptions, assignments, havocs
 
-Moreover, we currently do not support files that contain type constructors without
-any polymorphism. The reason is that Boogie currently monomorphizes such programs,
-which leads to a different VC. If you want to try such programs, just add some 
-polymorphic function to the program such as `function test<T>(x:T):T` (that
-does not have to be used anywhere).
+We currently support only Boogie's type encoding in the VC given by the command-line option `/typeEncoding:p`. In particular,
+we do not support Boogie's monomorphization type encoding.
 
 ## Dependencies
 Our tool has the same dependencies as Boogie for the generation of Isabelle proofs:
@@ -74,11 +75,15 @@ Our tool has the same dependencies as Boogie for the generation of Isabelle proo
 * a supported SMT solver (see the [original Boogie repository](https://github.com/boogie-org/boogie)
 for details)
 
-To check Isabelle proofs, one additionally requires Isabelle 2021, as well as 
+To check Isabelle proofs, one additionally requires Isabelle 2022, as well as 
 an installation of the Isabelle session that provides the [formalization of 
 Boogie](https://github.com/gauravpartha/foundational_boogie/). Installation
 of this session can be done by adding the path to `foundational_boogie/BoogieLang`
-to the `ROOTS` file in the Isabelle home directory.
+to the `ROOTS` file in the Isabelle home directory, or by running
+
+```
+isabelle components add -u foundational_boogie/BoogieLang
+```
 
 ## Building
 
