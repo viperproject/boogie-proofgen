@@ -77,12 +77,12 @@ for details)
 
 To check Isabelle proofs, one additionally requires Isabelle 2022, as well as 
 an installation of the Isabelle session that provides the [formalization of 
-Boogie](https://github.com/gauravpartha/foundational_boogie/). Installation
-of this session can be done by adding the path to `foundational_boogie/BoogieLang`
+Boogie](https://github.com/gauravpartha/foundational-boogie/). Installation
+of this session can be done by adding the path to `foundational-boogie/BoogieLang`
 to the `ROOTS` file in the Isabelle home directory, or by running
 
 ```
-isabelle components add -u foundational_boogie/BoogieLang
+isabelle components add -u foundational-boogie/BoogieLang
 ```
 
 ## Building
