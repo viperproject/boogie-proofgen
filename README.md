@@ -37,7 +37,7 @@ constant propagation
 
 For a large part of our supported subset, our generated certificate shows that the input Boogie program represented
 as an AST program (i.e., the representation after parsing) is correct under the assumption of the VC.
-For some parts of our subset, we support only the validation of a subset of the transformation:
+For some parts of our subset, we support only the validation of a subset of the transformations:
 In particular, we currently do not support gotos and breaks in the AST-to-CFG transformation, and we also do not support the elimination of dead variables.
 If the input program has gotos or breaks, and dead variables, then our generated certificate shows that the CFG representation *after* dead variable elimination (but before block coalescing)
 is correct under the assumption of the VC (so, we can handle representations of gotos and breaks in CFGs).
@@ -113,8 +113,8 @@ directory already exists) in which the proofs are stored.
 In the proof generation output folder, a separate folder is created for each 
 procedure. There are multiple Isabelle theory files in each folder. The main
 theorem for the procedure is the last Isabelle lemma in the file with the suffix
-`cfg_to_dag_proof.thy`. This final lemma shows that the validity of the VC 
-implies correctness of the input CFG of the CFG-to-DAG phase.
+`asttocfg_proof.thy` (if the AST-to-CFG or dead variable elimination is not supported,
+then the relevant file ends with `cfgtodag_proof.thy` or `cfgoptimizations_proof.thy`. 
 
 When using the tool, one currently needs to make sure that no special characters
 are used that are reserved in Isabelle (such as `#` or `'`). Moreover, for
