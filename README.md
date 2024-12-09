@@ -54,9 +54,10 @@ with a "null" argument where a counterexample-related argument is expected.
 
 
 ## Supported subset
-We currently support only the default Boogie options and we do not
-support any attributes (the subsumption attribute is one exception). In terms of
-language features, we currently support:
+We currently support only the default Boogie options and we do not support any attributes (the subsumption attribute is one exception). Moreover, we currently do not support files that contain type constructors without any polymorphism. The reason is that Boogie currently monomorphizes such programs, which leads to a different VC. If you want to try such programs, just add some polymorphic function to the program such as `function test<T>(x:T):T` (that does not have to be used anywhere), which forces Boogie to apply the `/typeEncoding:p` command-line option (which specifies the type encoding that we do support, but this command-line option is overriden if the program is monomorphic).
+
+In terms of language features, we currently support:
+
 * Integers and booleans
 * Type constructors
 * (Polymorphic) functions
@@ -66,9 +67,6 @@ language features, we currently support:
 * Any gotos/labels/while loops that Boogie accepts for the CFG transformations (but not yet for the AST-to-CFG transformation)
 * Commands: assertions, assumptions, assignments, havocs
 
-We currently support only Boogie's type encoding in the VC given by the command-line option `/typeEncoding:p`. In particular,
-we do not support Boogie's monomorphization type encoding.
-
 ## Dependencies
 Our tool has the same dependencies as Boogie for the generation of Isabelle proofs:
 * [.NET Core](https://dotnet.microsoft.com)
@@ -77,12 +75,12 @@ for details)
 
 To check Isabelle proofs, one additionally requires Isabelle 2022, as well as 
 an installation of the Isabelle session that provides the [formalization of 
-Boogie](https://github.com/gauravpartha/foundational_boogie/). Installation
-of this session can be done by adding the path to `foundational_boogie/BoogieLang`
+Boogie](https://github.com/gauravpartha/foundational-boogie/). Installation
+of this session can be done by adding the path to `foundational-boogie/BoogieLang`
 to the `ROOTS` file in the Isabelle home directory, or by running
 
 ```
-isabelle components add -u foundational_boogie/BoogieLang
+isabelle components add -u foundational-boogie/BoogieLang
 ```
 
 ## Building
@@ -113,8 +111,9 @@ directory already exists) in which the proofs are stored.
 In the proof generation output folder, a separate folder is created for each 
 procedure. There are multiple Isabelle theory files in each folder. The main
 theorem for the procedure is the last Isabelle lemma in the file with the suffix
-`asttocfg_proof.thy` (if the AST-to-CFG or dead variable elimination is not supported,
-then the relevant file ends with `cfgtodag_proof.thy` or `cfgoptimizations_proof.thy`. 
+`asttocfg_proof.thy` in general. If the AST-to-CFG or dead variable elimination is not supported,
+then the relevant file ends with `cfgoptimizations_proof.thy` in general, but if we detect that the initial
+CFG optimizations ("basic transformations 1" above) had no effect, then the relevant file ends with `cfgtodag_proof.thy`.
 
 When using the tool, one currently needs to make sure that no special characters
 are used that are reserved in Isabelle (such as `#` or `'`). Moreover, for
