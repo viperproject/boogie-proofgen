@@ -7,11 +7,7 @@
 //
 // Rustan Leino, 23 Sep 2010
 
-/** MANUAL REWRITE:
 function abs(x: int): int { if 0 <= x then x else -x }
-**/
-function abs(x: int): int;
-axiom (forall x: int :: ( 0<= x ==> abs(x) == x) && ( (!(0 <= x)) ==> abs(x) == -x));
 
 function divt(int, int): int;
 function modt(int, int): int;
@@ -43,29 +39,9 @@ procedure T_from_E(a,b: int) returns (q,r: int)
   qq := dive(a,b);
   rr := mode(a,b);
 
-  /** MANUAL REWRITE
   q := if 0 <= a || rr == 0 then qq else if 0 <= b then qq+1 else qq-1;
   r := if 0 <= a || rr == 0 then rr else if 0 <= b then rr-b else rr+b;
-  **/
-  if(0 <= a || rr == 0) {
-    q := qq;
-  } else {
-    if (0<=b) {
-      q := qq+1;
-    } else {
-      q := qq-1;
-    }
-  }
-  if (0 <= a || rr == 0) {
-    r := rr;
-  } else {
-    if(0 <= b) {
-      r := rr-b;
-    } else {
-      r := rr+b;
-    }
-  }
-  assume  true;
+  assume true;
 }
 
 procedure E_from_T(a,b: int) returns (q,r: int)
@@ -84,26 +60,6 @@ procedure E_from_T(a,b: int) returns (q,r: int)
   qq := divt(a,b);
   rr := modt(a,b);
 
-  /* MANUAL REWRITE
   q := if 0 <= rr then qq else if 0 < b then qq-1 else qq+1;
   r := if 0 <= rr then rr else if 0 < b then rr+b else rr-b;
-  */
-  if(0 <= rr) {
-    q := qq;
-  } else {
-    if (0< b) {
-      q := qq-1;
-    } else {
-      q := qq+1;
-    }
-  }
-  if (0 <= rr) {
-    r := rr;
-  } else {
-    if(0 < b) {
-      r := rr+b;
-    } else {
-      r := rr-b;
-    }
-  }
 }

@@ -23,6 +23,8 @@ namespace ProofGeneration
         private static readonly TermIdent boolLitId = IsaCommonTerms.TermIdentFromName("LBool");
         private static readonly TermIdent realLitId = IsaCommonTerms.TermIdentFromName("LReal");
 
+        private static readonly TermIdent intToRealId = IsaCommonTerms.TermIdentFromName("IntToReal");
+        
         private static readonly TermIdent varId = IsaCommonTerms.TermIdentFromName("Var");
         private static readonly TermIdent bvarId = IsaCommonTerms.TermIdentFromName("BVar");
         private static readonly TermIdent oldVarId = IsaCommonTerms.TermIdentFromName("Old");
@@ -40,6 +42,10 @@ namespace ProofGeneration
         private static readonly TermIdent redCfgMultiId = IsaCommonTerms.TermIdentFromName("red_cfg_multi");
         private static readonly TermIdent redCfgKStepId = IsaCommonTerms.TermIdentFromName("red_cfg_k_step");
         private static readonly TermIdent redCmdListId = IsaCommonTerms.TermIdentFromName("red_cmd_list");
+        private static readonly TermIdent redBigBlockId = IsaCommonTerms.TermIdentFromName("red_bigblock");
+        private static readonly TermIdent redBigBlockKStepId = IsaCommonTerms.TermIdentFromName("red_bigblock_k_step");
+        private static readonly TermIdent redBigBlockMultiId = IsaCommonTerms.TermIdentFromName("rtranclp");
+        private static readonly TermIdent astValidConfigId = IsaCommonTerms.TermIdentFromName("Ast.valid_configuration");
         private static readonly TermIdent redExprId = IsaCommonTerms.TermIdentFromName("red_expr");
         private static readonly TermIdent normalStateId = IsaCommonTerms.TermIdentFromName("Normal");
         private static readonly TermIdent magicStateId = IsaCommonTerms.TermIdentFromName("Magic");
@@ -48,6 +54,8 @@ namespace ProofGeneration
         private static readonly TermIdent outEdgesId = IsaCommonTerms.TermIdentFromName("out_edges");
         private static readonly TermIdent nodeToBlockId = IsaCommonTerms.TermIdentFromName("node_to_block");
         private static readonly TermIdent funInterpWfId = IsaCommonTerms.TermIdentFromName("fun_interp_wf");
+        
+        private static readonly TermIdent astLoopIhId = IsaCommonTerms.TermIdentFromName("loop_IH");
 
         private static readonly TermIdent
             funInterpSingleWfId = IsaCommonTerms.TermIdentFromName("fun_interp_single_wf");
@@ -77,6 +85,7 @@ namespace ProofGeneration
 
         public static TermIdent ConvertValToBoolId { get; } = IsaCommonTerms.TermIdentFromName("convert_val_to_bool");
         public static TermIdent ConvertValToIntId { get; } = IsaCommonTerms.TermIdentFromName("convert_val_to_int");
+        public static TermIdent SematicsProcSpecSatisfied { get; } = IsaCommonTerms.TermIdentFromName("Semantics.proc_body_satisfies_spec");
         public static TermIdent ConvertValToRealId { get; } = IsaCommonTerms.TermIdentFromName("convert_val_to_real");
 
         //TODO initialize all the default constructors, so that they only need to be allocated once (Val, Var, etc...)
@@ -108,7 +117,7 @@ namespace ProofGeneration
             Term natConst = new NatConst(i);
             return new TermApp(bvarId, natConst);
         }
-
+        
         public static Term Old(Term body)
         {
             return new TermApp(oldVarId, body);
@@ -322,27 +331,37 @@ namespace ProofGeneration
             var list = new List<Term> {arg1, IsaCommonTerms.TermIdentFromName(bopIsa), arg2};
             return new TermApp(IsaCommonTerms.TermIdentFromName("BinOp"), list);
         }
-
-        public static Term Unop(UnaryOperator.Opcode opcode, Term arg)
+        
+        private static Term Unop(Term unop, Term arg)
         {
-            string uopIsa;
-
-            switch (opcode)
-            {
-                case UnaryOperator.Opcode.Not:
-                    uopIsa = "Not";
-                    break;
-                case UnaryOperator.Opcode.Neg:
-                    uopIsa = "UMinus";
-                    break;
-                default:
-                    throw new NotImplementedException();
-            }
-
-            var list = new List<Term> {IsaCommonTerms.TermIdentFromName(uopIsa), arg};
+            var list = new List<Term> {unop, arg};
             return new TermApp(IsaCommonTerms.TermIdentFromName("UnOp"), list);
         }
 
+        public static Term Unop(UnaryOperator.Opcode opcode, Term arg)
+        {
+          string uopIsa;
+
+          switch (opcode)
+          {
+            case UnaryOperator.Opcode.Not:
+              uopIsa = "Not";
+              break;
+            case UnaryOperator.Opcode.Neg:
+              uopIsa = "UMinus";
+              break;
+            default:
+              throw new NotImplementedException();
+          }
+
+          return Unop(IsaCommonTerms.TermIdentFromName(uopIsa), arg);
+        }
+        
+        public static Term IntToReal(Term intTerm)
+        {
+          return Unop(intToRealId, intTerm);
+        }
+        
         //value quantification
 
         /*
@@ -392,6 +411,11 @@ namespace ProofGeneration
         public static Term ProcCall(string procname, IList<Term> args, IList<Term> returnVars)
         {
             return new TermApp(procCallId, new StringConst(procname), new TermList(args), new TermList(returnVars));
+        }
+        
+        public static Term MethodASTBody(IList<Term> bigblocks)
+        {
+          return new TermList(bigblocks);
         }
 
         public static Term MethodCFGBody(Term entryNode, Term outEdges, Term nodeToBlock)
@@ -482,6 +506,112 @@ namespace ProofGeneration
                     }
                 );
         }
+        
+        public static Term RedBigBlock(BoogieContextIsa boogieContext, Term startConfig, Term endConfig, Term ast)
+        {
+          return
+            new TermApp(redBigBlockId,
+              new List<Term>
+              {
+                boogieContext.absValTyMap,
+                boogieContext.methodContext,
+                boogieContext.varContext,
+                boogieContext.funContext,
+                boogieContext.rtypeEnv,
+                ast,
+                startConfig,
+                endConfig
+              }
+            );
+        }
+        
+        public static Term RedBigBlockKStep(BoogieContextIsa boogieContext, Term startConfig, Term endConfig, Term ast, Term numSteps)
+        {
+          return
+            new TermApp(redBigBlockKStepId,
+              new List<Term>
+              {
+                boogieContext.absValTyMap,
+                boogieContext.methodContext,
+                boogieContext.varContext,
+                boogieContext.funContext,
+                boogieContext.rtypeEnv,
+                ast,
+                startConfig,
+                numSteps,
+                endConfig
+              }
+            );
+        }
+        
+        public static Term RedBigBlockMulti(BoogieContextIsa boogieContext, Term startConfig, Term endConfig, Term ast)
+        {
+          IList<Term> bigblockContextList = new List<Term>
+          {
+            boogieContext.absValTyMap,
+            boogieContext.methodContext,
+            boogieContext.varContext,
+            boogieContext.funContext,
+            boogieContext.rtypeEnv,
+            ast
+          };
+          Term redbigBlockTerm = new TermApp(redBigBlockId, bigblockContextList);
+
+          return
+            new TermApp(redBigBlockMultiId,
+              new List<Term>
+              {
+                redbigBlockTerm,
+                startConfig,
+                endConfig
+              }
+            );
+        }
+        
+        public static Term StartConfigTerm(BigBlock b, Term cont0, IProgramAccessor beforeCfgProgAccess, Term initState1)
+        {
+          var beforeBigblockDefName = beforeCfgProgAccess.BigBlockInfo().CmdsQualifiedName(b).First();
+          Term beforeBigblock = IsaCommonTerms.TermIdentFromName(beforeBigblockDefName);
+
+          IList<Term> startConfigArgs = new List<Term>();
+          startConfigArgs.Add(beforeBigblock);
+          startConfigArgs.Add(cont0);
+          startConfigArgs.Add(initState1);
+          
+          return new TermTuple(startConfigArgs);
+        }
+        
+        public static Term EndConfigTerm()
+        {
+          IList<Term> endConfigArgs = new List<Term>();
+          endConfigArgs.Add(IsaCommonTerms.TermIdentFromName("reached_bb"));
+          endConfigArgs.Add(IsaCommonTerms.TermIdentFromName("reached_cont"));
+          endConfigArgs.Add(IsaCommonTerms.TermIdentFromName("reached_state"));
+          
+          return new TermTuple(endConfigArgs);
+        }
+        public static Term astId()
+        {
+          return IsaCommonTerms.TermIdentFromName("T");
+        }
+        
+        public static Term AstValidConfiguration(BoogieContextIsa boogieContext, Term posts)
+        {
+          return
+            new TermApp(astValidConfigId,
+              new List<Term>
+              {
+                boogieContext.absValTyMap,
+                boogieContext.varContext,
+                boogieContext.funContext,
+                boogieContext.rtypeEnv,
+                posts,
+                IsaCommonTerms.TermIdentFromName("reached_bb"),
+                IsaCommonTerms.TermIdentFromName("reached_cont"),
+                IsaCommonTerms.TermIdentFromName("reached_state")
+              }
+            );
+        }
 
         public static Term RedCFGMulti(BoogieContextIsa boogieContext, Term cfg, Term initCFGConfig,
             Term finalCFGConfig)
@@ -520,6 +650,31 @@ namespace ProofGeneration
                         finalCFGConfig
                     });
         }
+        
+        public static Term AstToCfgLoopIndHypothesis(BoogieContextIsa astBoogieContext, BoogieContextIsa cfgBoogieContext, Term ast, Term bigblock, Term cont, Term cfgBody, Term blockIndex, Term posts)
+        {
+          return
+            new TermApp(astLoopIhId,
+              new List<Term>
+              {
+                IsaCommonTerms.TermIdentFromName("j"),
+                astBoogieContext.absValTyMap,
+                astBoogieContext.methodContext,
+                //cfgBoogieContext.methodContext,
+                astBoogieContext.varContext,
+                astBoogieContext.funContext,
+                astBoogieContext.rtypeEnv,
+                ast,
+                bigblock,
+                cont,
+                cfgBody,
+                blockIndex,
+                posts,
+                IsaCommonTerms.TermIdentFromName("reached_bb"),
+                IsaCommonTerms.TermIdentFromName("reached_cont"),
+                IsaCommonTerms.TermIdentFromName("reached_state")
+              });
+        }
 
         public static Term CFGConfigNode(Term node, Term state)
         {
@@ -552,12 +707,12 @@ namespace ProofGeneration
                     });
         }
 
-        public static Term FunDecl(Function f, IVariableTranslationFactory varTranslationFactory,
+        public static Term FunDecl(Function f, IVariableTranslationFactory varTranslationFactory, IsaUniqueNamer uniqueNamer,
             bool includeName = true)
         {
             var typeIsaVisitor = LemmaHelper.FunTypeIsaVisitor(f, varTranslationFactory);
 
-            Term fname = new StringConst(f.Name);
+            Term fname = new StringConst(uniqueNamer.RemoveApostropheInFunc(f.Name));
             Term numTypeParams = new NatConst(f.TypeParameters.Count);
             var argTypes = new TermList(f.InParams.Select(v => typeIsaVisitor.Translate(v.TypedIdent.Type)).ToList());
             var retType = typeIsaVisitor.Translate(f.OutParams.First().TypedIdent.Type);
@@ -630,9 +785,9 @@ namespace ProofGeneration
         }
 
         public static Term FunInterpSingleWf(Function f, Term absValTyMap, Term fTerm,
-            IVariableTranslationFactory factory)
+            IVariableTranslationFactory factory, IsaUniqueNamer uniqueNamer)
         {
-            return FunInterpSingleWf(absValTyMap, FunDecl(f, factory), fTerm);
+            return FunInterpSingleWf(absValTyMap, FunDecl(f, factory, uniqueNamer), fTerm);
         }
 
         public static Term FunInterpSingleWf(Term absValTyMap, Term fdecl, Term fun)
@@ -695,5 +850,28 @@ namespace ProofGeneration
         {
             return new TermApp(instTypeId, rtypeEnv, ty);
         }
+        
+        public static Term ProcedureIsCorrectCfg(Term funDecls, Term constantDecls, Term uniqueConstants, Term globalDecls, Term axioms,
+            Term procedure)
+        {
+            var typeInterpId = new SimpleIdentifier("A");
+            return
+              TermQuantifier.MetaAll(
+                new List<Identifier> {typeInterpId},
+                null,
+                new TermApp(
+                  IsaCommonTerms.TermIdentFromName("Semantics.proc_is_correct"),
+                  //TODO: here assuming that we use "'a" for the abstract value type carrier t --> make t a parameter somewhere 
+                  new TermWithExplicitType(new TermIdent(typeInterpId), 
+                    IsaBoogieType.AbstractValueTyFunType(new VarType("a"))),
+                  funDecls,
+                  constantDecls,
+                  uniqueConstants,
+                  globalDecls,
+                  axioms,
+                  procedure,
+                  IsaBoogieTerm.SematicsProcSpecSatisfied));
+        }
+        
     }
 }

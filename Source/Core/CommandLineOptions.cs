@@ -1044,7 +1044,24 @@ namespace Microsoft.Boogie
     public string ProofOutputDir = null;
     public bool OnlyCheckProofGenSupport = false;
     public bool DontStoreProofGenFiles = false;
-    public bool GenerateIsaProgNoProofs = false;
+    
+    /* If use id-based lemma naming, then whenever lemmas are specific to an entity that is represented using an id (i.e., a natural number),
+       then the lemma name is uniquely determined by that id. For example, if variables are represented using natural numbers,
+       then the membership lemmas for those variables are uniquely determined by the corresponding natural number. */
+    public bool UseIdBasedLemmaNaming = false;
+    
+    /*
+     * 0: disabled -> proofs are generated
+     * 1: partially enabled -> only AST program is generated but with membership lemmas
+     * 2: enabled -> only AST program is generated
+     */
+    public int GenerateIsaProgNoProofs = 0;
+
+    public bool OnlyGenerateInitialProgramIsa()
+    {
+      return GenerateIsaProgNoProofs != 0;
+    }
+    
     public bool DesugarMaps = false;
     #endregion
 
@@ -1820,14 +1837,18 @@ namespace Microsoft.Boogie
 
           return true;
         
-        case "isaProgNoProofs":
+        case "useIdBasedLemmaNaming":
           if (ps.ConfirmArgumentCount(0))
           {
-            GenerateIsaProgNoProofs = true;
+            UseIdBasedLemmaNaming = true;
           }
-          
+
           return true;
         
+        case "isaProgNoProofs":
+          ps.GetNumericArgument(ref GenerateIsaProgNoProofs, 3);
+          return true;
+
         case "desugarMaps":
           if (ps.ConfirmArgumentCount(0))
           {

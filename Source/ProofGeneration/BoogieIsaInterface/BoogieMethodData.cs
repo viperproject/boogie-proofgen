@@ -32,7 +32,7 @@ namespace ProofGeneration.BoogieIsaInterface
         public IEnumerable<Function> Functions => globalData.Functions;
         public IEnumerable<Axiom> Axioms => globalData.Axioms;
         public IEnumerable<Variable> GlobalVars => globalData.GlobalVars;
-        public IEnumerable<Variable> Constants => globalData.Constants;
+        public IEnumerable<Constant> Constants => globalData.Constants;
 
         public IEnumerable<TypeVariable> TypeParams { get; }
         public IEnumerable<Variable> InParams { get; }

@@ -7,11 +7,12 @@ using Microsoft.Boogie;
 using ProofGeneration.BoogieIsaInterface;
 using ProofGeneration.BoogieIsaInterface.VariableTranslation;
 using ProofGeneration.CFGRepresentation;
+using ProofGeneration.PhasesUtil;
 using ProofGeneration.Util;
 
 namespace ProofGeneration.CfgToDag
 {
-    public class CfgToDagManager
+  public class CfgToDagManager
     {
         /**
          * cases:
@@ -23,7 +24,9 @@ namespace ProofGeneration.CfgToDag
          */
         public static Theory CfgToDagProof(
             PhasesTheories phasesTheories,
-            bool generateEndToEndLemma,
+            EndToEndLemmaConfig endToEndLemmaConfig,
+            bool generatePassificationProof,
+            bool generateVcProof,
             Term vcAssm,
             CFGRepr beforeDagCfg,
             CFGRepr afterDagCfg,
@@ -33,35 +36,14 @@ namespace ProofGeneration.CfgToDag
             IDictionary<Block, Block> beforeToAfter,
             IProgramAccessor beforeDagProgAccess,
             IProgramAccessor afterDagProgAccess,
-            IVariableTranslationFactory varFactory)
+            IVariableTranslationFactory varFactory,
+            IDictionary<Block, IList<Block>> blocksToLoops)
         {
             var afterToBefore = beforeToAfter.InverseDict();
 
             //track mapping from blocks to loops that the block is contained in and for which it is not the loop head
-            IDictionary<Block, IList<Block>> blocksToLoops = new Dictionary<Block, IList<Block>>();
-
-            foreach (var afterBlock in afterDagCfg.GetBlocksBackwards())
-                if (afterToBefore.TryGetValue(afterBlock, out var beforeBlock))
-                {
-                    var loops = new HashSet<Block>();
-                    foreach (var bSuc in beforeDagCfg.GetSuccessorBlocks(beforeBlock))
-                        if (blocksToLoops.TryGetValue(bSuc, out var loopsSuc))
-                            //if successor inside of a loop L and the block is not the loop head of L, then the block is also inside L
-                            foreach (var loopSuc in loopsSuc)
-                                if (!loopSuc.Equals(beforeBlock))
-                                    loops.Add(loopSuc);
-                    /* a node is inside all loops for which it has an out-going backedge
-                       if a node has a backedge to itself (i.e., it is also a loop head), then we do not add this loop
-                     */
-                    if (hintManager.TryIsBackedgeNode(beforeBlock, out var backedgeLoops))
-                        foreach (var backedgeLoop in backedgeLoops)
-                            if (beforeBlock != backedgeLoop)
-                                loops.Add(backedgeLoop);
-
-                    var loopsList = loops.ToList();
-                    blocksToLoops.Add(beforeBlock, loopsList);
-                }
-
+            
+            
             var varContextName = "\\<Lambda>1";
             var varContextAbbrev = new AbbreviationDecl(
                 varContextName,
@@ -200,10 +182,11 @@ namespace ProofGeneration.CfgToDag
             var theoryOuterDecls = new List<OuterDecl>();
             theoryOuterDecls.Add(cfgToDagLemmasLocale);
 
-            if (generateEndToEndLemma)
+            if (endToEndLemmaConfig != EndToEndLemmaConfig.DoNotGenerate)
             {
                 var endToEndManager = new CfgToDagEndToEnd();
                 var endToEndDecls = endToEndManager.EndToEndProof(
+                    endToEndLemmaConfig == EndToEndLemmaConfig.GenerateForProcedure,
                     cfgToDagLemmasLocale.Name + "." + entryLemma.Name,
                     phasesTheories.EndToEndLemmaName(PhasesTheories.Phase.Passification, true),
                     vcAssm,
@@ -219,8 +202,9 @@ namespace ProofGeneration.CfgToDag
                 {
                     "Boogie_Lang.Semantics", "Boogie_Lang.Util", "Boogie_Lang.BackedgeElim", "Boogie_Lang.TypingML",
                     beforeDagProgAccess.TheoryName(),
-                    afterDagProgAccess.TheoryName(), phasesTheories.TheoryName(PhasesTheories.Phase.Passification),
-                    phasesTheories.TheoryName(PhasesTheories.Phase.Vc)
+                    afterDagProgAccess.TheoryName(), 
+                    generatePassificationProof ? phasesTheories.TheoryName(PhasesTheories.Phase.Passification) : "",
+                    generateVcProof ? phasesTheories.TheoryName(PhasesTheories.Phase.Vc) : ""
                 },
                 theoryOuterDecls
             );

@@ -46,7 +46,7 @@ namespace ProofGeneration.CFGRepresentation
 
             if (config.GenerateBlockCopy)
             {
-                blocksToConvert = CopyBlocks(impl.Blocks, predecessorMap, config.GenerateBlockCopy,
+                blocksToConvert = CopyBlocks(impl.Blocks, predecessorMap, config.DesugarCalls,
                     config.DeepCopyCmdPred, out newVarsFromDesugaring);
 
                 var newToOldInternal = new Dictionary<Block, Block>();
@@ -139,7 +139,7 @@ namespace ProofGeneration.CFGRepresentation
             return predecessors;
         }
 
-        private static IDictionary<Block, int> GetTopologicalLabeling(IList<Block> blocks)
+        public static IDictionary<Block, int> GetTopologicalLabeling(IList<Block> blocks)
         {
             Contract.Requires(blocks != null);
             Contract.Ensures(blocks.Count == Contract.Result<IDictionary<Block, int>>().Count);

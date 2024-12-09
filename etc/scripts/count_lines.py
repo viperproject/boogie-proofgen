@@ -13,7 +13,7 @@ def print_theory_line_info(input_dir):
                     has_theories = True
                     file_path = os.path.join(os.path.join(dir_path, root), file)
                     file_content = open(file_path, "r")
-                    nonempty_lines = [line.strip("\n") for line in file_content if line != "\n"]
+                    nonempty_lines = [line for line in file_content if line.strip()]
                     length_certificate += len(nonempty_lines)
         
         if has_theories:

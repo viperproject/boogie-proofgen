@@ -63,8 +63,9 @@ namespace ProofGeneration
             IsaProgramGeneratorConfig config,
             IVariableTranslationFactory varTranslationFactory,
             CFGRepr cfg,
+            IsaUniqueNamer uniqueNamer,
             out IList<OuterDecl> decls,
-            bool generateMembershipLemmas = true,
+            MembershipLemmaConfig membershipLemmaConfig,
             bool onlyGlobalData = false
         )
         {
@@ -91,8 +92,9 @@ namespace ProofGeneration
             var isaGlobalProgramRepr = new IsaGlobalProgramRepr(
                 FunctionDeclarationsName(),
                 AxiomDeclarationsName(),
-                VariableDeclarationsName("globals"),
-                VariableDeclarationsName("constants")
+                VariableDeclarationsName(globalsName),
+                VariableDeclarationsName(constantsName),
+                uniqueConstantsName
                 );
             var globalsMax = methodData.Constants.Count() + methodData.GlobalVars.Count() - 1;
             // assume single versioning and order on constants, globals, params, locals
@@ -118,7 +120,7 @@ namespace ProofGeneration
                     VariableDeclarationsName("locals"),
                     cfgName,
                     procDefName);
-                membershipLemmaManager = new MembershipLemmaManager(config, isaProgramRepr, blockInfo,
+                membershipLemmaManager = new MembershipLemmaManager(config, isaProgramRepr, blockInfo, null,
                 Tuple.Create(globalsMax, localsMin), varTranslationFactory, theoryName);
                 
                 var nodesToBlocks = GetNodeToBlocksIsa(cfg, blockInfo.BlockCmdsDefs);
@@ -170,7 +172,7 @@ namespace ProofGeneration
                 /* membership lemmas might still be added even if the parameter and local variable definitions are not generated
                  * at this point (since the variable context may still be different, which requires other lookup lemmas)
                  */
-                if (generateMembershipLemmas)
+                if (membershipLemmaConfig.GenerateVariableMembershipLemmas)
                 {
                     membershipLemmaManager.AddVariableMembershipLemmas(methodData.InParams, VarKind.ParamOrLocal);
                     membershipLemmaManager.AddVariableMembershipLemmas(methodData.Locals, VarKind.ParamOrLocal);
@@ -180,30 +182,40 @@ namespace ProofGeneration
             if (config.generateAxioms)
             {
                 decls.Add(GetAxioms(methodData.Axioms));
-                if(generateMembershipLemmas) membershipLemmaManager.AddAxiomMembershipLemmas(methodData.Axioms);
+                if (membershipLemmaConfig.GenerateAxiomMembershipLemmas)
+                {
+                  membershipLemmaManager.AddAxiomMembershipLemmas(methodData.Axioms);
+                }
             }
 
             if (config.generateFunctions)
             {
-                decls.Add(GetFunctionDeclarationsIsa(methodData.Functions));
-                if(generateMembershipLemmas) membershipLemmaManager.AddFunctionMembershipLemmas(methodData.Functions);
+                decls.Add(GetFunctionDeclarationsIsa(methodData.Functions, uniqueNamer));
+                if (membershipLemmaConfig.GenerateFunctionMembershipLemmas)
+                {
+                  membershipLemmaManager.AddFunctionMembershipLemmas(methodData.Functions, uniqueNamer);
+                }
             }
 
             if (config.generateGlobalsAndConstants)
             {
                 decls.Add(GetVariableDeclarationsIsa("globals", methodData.GlobalVars));
-                decls.Add(GetVariableDeclarationsIsa("constants", methodData.Constants));
+                decls.Add(GetVariableDeclarationsIsa(constantsName, methodData.Constants));
+                decls.Add(GetUniqueConstants(uniqueConstantsName, methodData.Constants));
             }
 
-            if (generateMembershipLemmas)
+            if (membershipLemmaConfig.GenerateVariableMembershipLemmas)
             {
                 membershipLemmaManager.AddVariableMembershipLemmas(methodData.GlobalVars, VarKind.Global);
                 membershipLemmaManager.AddVariableMembershipLemmas(methodData.Constants, VarKind.Constant);
                 decls.AddRange(membershipLemmaManager.OuterDecls());
             }
 
-            if (config.specsConfig != SpecsConfig.None)
-            {
+            /* always add procedure definition even if it is potentially not used
+               (easier than having conditions here, especially since cost is small)
+             */
+            if (!onlyGlobalData)
+            { 
                 DefDecl methodDef = MethodDefinition(membershipLemmaManager, methodData, config.specsConfig);
                 decls.Add(methodDef);
             }
@@ -217,8 +229,10 @@ namespace ProofGeneration
             foreach (var ax in axioms)
             {
                 var axTerms = cmdIsaVisitor.Translate(ax.Expr);
+
                 if (axTerms.Count != 1)
                     throw new ProofGenUnexpectedStateException(GetType(), "axiom not translated into single term");
+                
                 axiomsExpr.Add(axTerms.First());
             }
 
@@ -255,8 +269,10 @@ namespace ProofGeneration
                     //TODO: incorporate return values and modified variables
                     Tuple.Create("proc_rets", (Term) IsaCommonTerms.EmptyList),
                     Tuple.Create("proc_modifs", (Term) modifiedVarsTerm),
-                    Tuple.Create("proc_pres", specConfig == SpecsConfig.All ?  programAccessor.PreconditionsDecl() : IsaBoogieTerm.LiftExprsToCheckedSpecs(programAccessor.PreconditionsDecl())),
-                    Tuple.Create("proc_posts", specConfig == SpecsConfig.All ? programAccessor.PostconditionsDecl() : IsaBoogieTerm.LiftExprsToCheckedSpecs(programAccessor.PostconditionsDecl())),
+                    Tuple.Create("proc_pres", specConfig == SpecsConfig.All ?  
+                      programAccessor.PreconditionsDecl() : IsaBoogieTerm.LiftExprsToCheckedSpecs(programAccessor.PreconditionsDecl())),
+                    Tuple.Create("proc_posts", specConfig == SpecsConfig.All ? 
+                      programAccessor.PostconditionsDecl() : IsaBoogieTerm.LiftExprsToCheckedSpecs(programAccessor.PostconditionsDecl())),
                     //TODO: support abstract procedures
                     Tuple.Create("proc_body", 
                         IsaCommonTerms.SomeOption(new TermTuple(IsaCommonTerms.TermIdentFromName(programAccessor.LocalsDecl()), programAccessor.CfgDecl())))
@@ -362,13 +378,13 @@ namespace ProofGeneration
             return DefDecl.CreateWithoutArg(nodeToBlocksName, new TermList(nodeList));
         }
 
-        private DefDecl GetFunctionDeclarationsIsa(IEnumerable<Function> functions)
+        private DefDecl GetFunctionDeclarationsIsa(IEnumerable<Function> functions, IsaUniqueNamer uniqueNamer)
         {
             //var equations = new List<Tuple<IList<Term>, Term>>();
             var fdecls = new List<Term>();
 
 
-            foreach (var f in functions) fdecls.Add(IsaBoogieTerm.FunDecl(f, varTranslationFactory));
+            foreach (var f in functions) fdecls.Add(IsaBoogieTerm.FunDecl(f, varTranslationFactory, uniqueNamer));
 
             return DefDecl.CreateWithoutArg(FunctionDeclarationsName(), new TermList(fdecls));
         }
@@ -387,6 +403,10 @@ namespace ProofGeneration
         {
             return "post";
         }
+
+        private string globalsName = "globals";
+        private string constantsName = "constants";
+        private string uniqueConstantsName = "unique_consts";
 
         private DefDecl GetVariableDeclarationsIsa(string varKind, IEnumerable<Variable> variables)
         {
@@ -409,6 +429,31 @@ namespace ProofGeneration
             var equation = new Tuple<IList<Term>, Term>(new List<Term>(), new TermList(vdecls));
             return new DefDecl(VariableDeclarationsName(varKind), IsaBoogieType.VariableDeclsType,
                 equation);
+        }
+
+        private DefDecl GetUniqueConstants(String defName, IEnumerable<Constant> constants)
+        {
+          var uniqueConstNames = new List<Term>();
+          
+          foreach (var c in constants)
+          {
+            if (!c.Unique)
+            {
+              continue;
+            }
+            
+            if (varTranslation.VarTranslation.TryTranslateVariableId(c, out var resId, out _))
+            {
+              uniqueConstNames.Add(resId);
+            }
+            else
+            {
+              throw new ProofGenUnexpectedStateException(GetType(), "Cannot translate constant " + c.Name);
+            }
+          }
+          
+          var equation = new Tuple<IList<Term>, Term>(new List<Term>(), new TermList(uniqueConstNames));
+          return new DefDecl(defName, IsaCommonTypes.GetListType(IsaBoogieType.VnameType()), equation);
         }
 
         private string VariableDeclarationsName(string varKind)

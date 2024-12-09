@@ -4,6 +4,7 @@ using System.Linq;
 using Microsoft.Boogie.GraphUtil;
 using System.Diagnostics.Contracts;
 
+
 namespace Microsoft.Boogie
 {
   public class UnusedVarEliminator : VariableCollector
@@ -478,14 +479,21 @@ namespace Microsoft.Boogie
 
       return multiPredBlocks;
     }
+    
+ 
 
     public override Implementation VisitImplementation(Implementation impl)
     {
+
+      #region proofgen
+      IDictionary<Block, Block> CoalescedBlocksToTarget = new Dictionary<Block, Block>();
+      IDictionary<Block, BlockCoalescingInfo> ListCoalescedBlocks = new Dictionary<Block, BlockCoalescingInfo>();
+      #endregion
+      
       //Contract.Requires(impl != null);
       Contract.Ensures(Contract.Result<Implementation>() != null);
       //Console.WriteLine("Procedure {0}", impl.Name);
       //Console.WriteLine("Initial number of blocks = {0}", impl.Blocks.Count);
-
       HashSet<Block /*!*/> multiPredBlocks = ComputeMultiPredecessorBlocks(impl);
       Contract.Assert(cce.NonNullElements(multiPredBlocks));
       HashSet<Block /*!*/> visitedBlocks = new HashSet<Block /*!*/>();
@@ -524,8 +532,32 @@ namespace Microsoft.Boogie
         {
           Block /*!*/
             succ = cce.NonNull(gotoCmd.labelTargets[0]);
+
           if (!multiPredBlocks.Contains(succ))
           {
+            #region proofgen
+            if (!ListCoalescedBlocks.ContainsKey(b))
+            {
+              List<Block> newList = new List<Block>();
+              newList.Add(b);
+              BlockCoalescingInfo coalescedHead = new BlockCoalescingInfo(newList, 0);
+              ListCoalescedBlocks.Add(b, coalescedHead);
+            }
+            ListCoalescedBlocks[b].coalescedBlocks.Add(succ);
+            
+            BlockCoalescingInfo curr = new BlockCoalescingInfo(ListCoalescedBlocks[b].coalescedBlocks, ListCoalescedBlocks[b].coalescedBlocks.Count - 1);
+            ListCoalescedBlocks.Add(succ, curr);
+            
+            if (!CoalescedBlocksToTarget.ContainsKey(succ))
+            {
+              CoalescedBlocksToTarget.Add(succ, b);
+            }
+            if (!CoalescedBlocksToTarget.ContainsKey(b))
+            {
+              CoalescedBlocksToTarget.Add(b, b);
+            }
+            #endregion
+            
             foreach (Cmd /*!*/ cmd in succ.Cmds)
             {
               Contract.Assert(cmd != null);
@@ -579,6 +611,11 @@ namespace Microsoft.Boogie
         }
       }
 
+      #region proofgen
+      impl.CoalescedBlocksToTarget = CoalescedBlocksToTarget;
+      impl.ListCoalescedBlocks = ListCoalescedBlocks;
+      #endregion
+      
       // Console.WriteLine("Final number of blocks = {0}", impl.Blocks.Count);
       return impl;
     }
@@ -2316,4 +2353,18 @@ b.liveVarsBefore = procICFG[mainImpl.Name].liveVarsAfter[b];
       return base.VisitBlock(node);
     }
   }
+  #region proofgen
+  public class BlockCoalescingInfo
+  {
+
+    public List<Block> coalescedBlocks;
+    public int idx;
+
+    public BlockCoalescingInfo(List<Block> coalescedBlocks, int idx)
+    {
+      this.coalescedBlocks = coalescedBlocks;
+      this.idx = idx;
+    }
+  }
+  #endregion
 }

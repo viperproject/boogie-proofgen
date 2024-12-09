@@ -43,6 +43,11 @@ namespace ProofGeneration.Util
         {
             return GetName(preferredName, preferredName);
         }
+        
+        public string RemoveApostropheInFunc(string preferredName)
+        {
+          return RemoveApostropheInFunc(preferredName, preferredName);
+        }
 
         /// <summary>
         /// Returns a unique, legal Isabelle name resembling <paramref name="preferredName"/>.
@@ -54,9 +59,45 @@ namespace ProofGeneration.Util
             var preferredNameMod = preferredName;
             foreach (var illegalChar in illegalChars) preferredNameMod = preferredNameMod.Replace(illegalChar, '_');
 
+            /* TODO: might need to replace numbers in some cases for ROOT file
+            if (preferredNameMod.Contains('0')) preferredNameMod = preferredNameMod.Replace('0', 'a'); 
+            if (preferredNameMod.Contains('1')) preferredNameMod = preferredNameMod.Replace('1', 'b'); 
+            if (preferredNameMod.Contains('2')) preferredNameMod = preferredNameMod.Replace('2', 'c'); 
+            if (preferredNameMod.Contains('3')) preferredNameMod = preferredNameMod.Replace('3', 'd'); 
+            if (preferredNameMod.Contains('4')) preferredNameMod = preferredNameMod.Replace('4', 'e'); 
+            if (preferredNameMod.Contains('5')) preferredNameMod = preferredNameMod.Replace('5', 'f'); 
+            if (preferredNameMod.Contains('6')) preferredNameMod = preferredNameMod.Replace('6', 'g'); 
+            if (preferredNameMod.Contains('7')) preferredNameMod = preferredNameMod.Replace('7', 'h'); 
+            if (preferredNameMod.Contains('8')) preferredNameMod = preferredNameMod.Replace('8', 'i'); 
+            if (preferredNameMod.Contains('9')) preferredNameMod = preferredNameMod.Replace('9', 'j');
+            */
+
             if (reservedNames.Contains(preferredNameMod)) preferredNameMod = preferredNameMod + "ZZ";
             if (preferredName.Length > 0 && preferredName.Last() == '_') preferredNameMod = preferredNameMod + "n";
+
             return uniqueNamer.GetName(obj, GetValidIsaString(preferredNameMod));
+        }
+
+        public string RemoveApostrophe(object obj, string preferredName)
+        {
+          var preferredNameMod = preferredName;
+          if (preferredNameMod.Contains("\'" + "\'" + "\'"))
+          {
+            preferredNameMod = preferredNameMod.Replace("\'" + "\'" + "\'", "AA" + "\'" + "\'");
+          }
+
+          return uniqueNamer.GetName(obj, preferredNameMod);
+        }
+        
+        public string RemoveApostropheInFunc(object obj, string preferredName)
+        {
+          var preferredNameMod = preferredName;
+          if (preferredNameMod.Contains("\'"))
+          {
+            preferredNameMod = preferredNameMod.Replace("\'", "AA");
+          }
+
+          return uniqueNamer.GetName(obj, preferredNameMod);
         }
 
         public string GetLocalName(object obj, string preferredName)

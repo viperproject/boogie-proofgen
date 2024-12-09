@@ -634,7 +634,7 @@ namespace ProofGeneration.CfgToDag
             Term finalState)
         {
             return new TermApp(
-                IsaCommonTerms.TermIdentFromName("valid_configuration"),
+                IsaCommonTerms.TermIdentFromName("Semantics.valid_configuration"),
                 boogieContext.absValTyMap,
                 boogieContext.varContext,
                 boogieContext.funContext,
@@ -729,22 +729,24 @@ namespace ProofGeneration.CfgToDag
                        If so, then we need to get the invariant satisfiability from that block.
                     */
                     foreach (var afterSuc in afterDagCfg.GetSuccessorBlocks(afterBlock))
+                    {
                         if (hintManager.IsNewBackedgeBlock(afterSuc, out var loopHead, out var _) &&
                             loopHead == bSuc)
                         {
-                            //TODO separate function for this and share code with case below
-                            var afterSucId = afterDagProgAccess.BlockInfo().BlockIds[afterSuc];
-                            sb.AppendLine("(* proof strategy for new backedge block *)");
-                            sb.AppendLine("apply (erule allE[where x=" + afterSucId + "])");
-                            sb.AppendLine(ProofUtil.Apply(
-                                ProofUtil.Simp(afterDagProgAccess.BlockInfo()
-                                    .OutEdgesMembershipLemma(afterBlock))));
-                            sb.AppendLine(ProofUtil.Apply(ProofUtil.Simp("member_rec(1)")));
-                            sb.AppendLine(ProofUtil.Apply("erule " + cfgLemmaName(afterSuc)));
-                            sb.AppendLine(ProofUtil.Apply("assumption, assumption, simp"));
-                            sb.AppendLine("(* finish proof strategy for new backedge block *)");
-                            break;
+                          //TODO separate function for this and share code with case below
+                          var afterSucId = afterDagProgAccess.BlockInfo().BlockIds[afterSuc];
+                          sb.AppendLine("(* proof strategy for new backedge block *)");
+                          sb.AppendLine("apply (erule allE[where x=" + afterSucId + "])");
+                          sb.AppendLine(ProofUtil.Apply(
+                            ProofUtil.Simp(afterDagProgAccess.BlockInfo()
+                              .OutEdgesMembershipLemma(afterBlock))));
+                          sb.AppendLine(ProofUtil.Apply(ProofUtil.Simp("member_rec(1)")));
+                          sb.AppendLine(ProofUtil.Apply("erule " + cfgLemmaName(afterSuc)));
+                          sb.AppendLine(ProofUtil.Apply("assumption, assumption, simp"));
+                          sb.AppendLine("(* finish proof strategy for new backedge block *)");
+                          break;
                         }
+                    }
 
                     if (beforeBlock.Equals(bSuc))
                     {
@@ -795,22 +797,36 @@ namespace ProofGeneration.CfgToDag
                     }
                     else
                     {
-                        /* need to find the empty block that was added in between (does not matter which one, if there
-                         * are multiple such empty blocks) */
+                        // need to find the empty block that was added in between 
+                        var bSucAfterIsLoopHead = hintManager.IsLoopHead(bSuc, out _);
+                        
                         foreach (var afterSuc in afterSuccessors)
                         {
                             var afterSucSuccessors = afterDagCfg.GetSuccessorBlocks(afterSuc);
-                            if (!afterSuc.Cmds.Any() && afterSucSuccessors.Count() == 1 &&
-                                afterSucSuccessors.First().Equals(bSucAfter))
+                            
+                            // block in between must have a single expected successor
+                            if (afterSucSuccessors.Count() != 1  || !afterSucSuccessors.First().Equals(bSucAfter))
+                            {
+                              continue;
+                            }
+
+                            /** if expected successor is not a loop head, then the block in between must be empty,
+                             *  otherwise the block in between must be a new pre entry loop block (which asserts the loop invariant)
+                             */
+                            if ( (!bSucAfterIsLoopHead && !afterSuc.Cmds.Any()) 
+                                ||
+                                 (bSucAfterIsLoopHead && hintManager.IsNewPreLoopEntryBlock(afterSuc)) )
                             {
                                 addedBlock = afterSuc;
-                                break;
-                            }
+                                break; //if there are multiple blocks that satisfy the criteria, then we can pick any, so break here
+                            } 
                         }
 
                         if (addedBlock == null)
-                            throw new ProofGenUnexpectedStateException("Could not find block");
-
+                        {
+                          throw new ProofGenUnexpectedStateException("Could not find new target block added in between two source blocks");
+                        }
+                          
                         bSucAfterId = afterDagProgAccess.BlockInfo().BlockIds[addedBlock];
                     }
 
@@ -908,8 +924,7 @@ namespace ProofGeneration.CfgToDag
                                                            "type_safety_top_level_inv",
                                                   funContextWfName,
                                                   beforeDagProgAccess.FuncsWfTyLemma(),
-                                                  beforeDagProgAccess
-                                                      .VarContextWfTyLemma())));
+                                                  beforeDagProgAccess.VarContextWfTyLemma())));
                 if (stateWtThm != null)
                     sb.AppendLine(ProofUtil.Apply("rule " + stateWtThm));
 
@@ -975,8 +990,7 @@ namespace ProofGeneration.CfgToDag
                                                   .BlockCmdsMembershipLemma(afterBlock)));
                 sb.AppendLine(ProofUtil.Apply("erule " + dagVerifiesName));
                 sb.AppendLine(ProofUtil.Apply("rule " + dagAssmsName));
-                sb.AppendLine("unfolding " + beforeDagProgAccess.PostconditionsDeclName() +
-                              "_def");
+                sb.AppendLine("unfolding " + beforeDagProgAccess.PostconditionsDeclName() + "_def");
                 sb.AppendLine(ProofUtil.Apply("rule " + blockLemmaName(beforeBlock)));
                 sb.AppendLine("apply assumption+");
                 sb.AppendLine(
@@ -1030,7 +1044,7 @@ namespace ProofGeneration.CfgToDag
             sb.AppendLine("show ?case");
             sb.AppendLine("proof (cases j)");
             sb.AppendLine(
-                "case 0 with less.prems(1) show ?thesis unfolding valid_configuration_def by auto");
+                "case 0 with less.prems(1) show ?thesis unfolding Semantics.valid_configuration_def by auto");
             sb.AppendLine("next");
             sb.AppendLine("case (Suc j')");
             sb.Append("from less(3) have " + stateRelLoopHeadName + ":");
@@ -1152,7 +1166,7 @@ namespace ProofGeneration.CfgToDag
                 cfg,
                 modVars,
                 invs,
-                beforeDagProgAccess.PostconditionsDecl(),
+                beforeDagProgAccess.PostconditionsDecl(),              
                 normalState,
                 finalState,
                 loopHeadNode,

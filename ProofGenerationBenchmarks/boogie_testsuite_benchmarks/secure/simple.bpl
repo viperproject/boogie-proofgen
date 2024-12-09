@@ -1,11 +1,12 @@
-//:: ProofGen(IgnoreFile)
 // Z3 4.1: /trace /proverOpt:O:smt.mbqi=true /proverOpt:O:smt.relevancy=0
-function  xor(a: bool, b: bool) returns (bool)  { (!a && b) || (a && !b) }
+
+/** MANUAL REWRITE: Replaced all xor with xorCustom (since xor is already defined in Isabelle) */
+function  xorCustom(a: bool, b: bool) returns (bool)  { (!a && b) || (a && !b) }
 
 procedure Incorrect_A(
      a: bool,  b: bool)
 returns ( ap: bool,  bp: bool)
-  ensures xor(ap, bp) == xor(a, b);
+  ensures xorCustom(ap, bp) == xorCustom(a, b);
 {
    ap := a;
    bp := b;
@@ -14,7 +15,7 @@ returns ( ap: bool,  bp: bool)
 procedure Incorrect_B(
      a: bool,  b: bool)
 returns ( ap: bool,  bp: bool)
-  ensures xor(ap, bp) == xor(a, b);
+  ensures xorCustom(ap, bp) == xorCustom(a, b);
 {
    ap := a;
    bp := b;
@@ -23,7 +24,7 @@ returns ( ap: bool,  bp: bool)
 procedure Incorrect_X(
      a: bool,  b: bool)
 returns ( ap: bool,  bp: bool)
-  ensures xor(ap, bp) == xor(a, b);
+  ensures xorCustom(ap, bp) == xorCustom(a, b);
 {
    ap := a;
    bp := b;
@@ -32,27 +33,27 @@ returns ( ap: bool,  bp: bool)
 procedure Correct_A(
      a: bool,  b: bool)
 returns ( ap: bool,  bp: bool)
-  ensures xor(ap, bp) == xor(a, b);
+  ensures xorCustom(ap, bp) == xorCustom(a, b);
 {
    havoc ap;
-   bp := xor(xor(ap, a), b);
+   bp := xorCustom(xorCustom(ap, a), b);
 }
 
 procedure Correct_B(
      a: bool,  b: bool)
 returns ( ap: bool,  bp: bool)
-  ensures xor(ap, bp) == xor(a, b);
+  ensures xorCustom(ap, bp) == xorCustom(a, b);
 {
    havoc ap;
-   bp := xor(xor(ap, a), b);
+   bp := xorCustom(xorCustom(ap, a), b);
 }
 
 procedure Correct_X(
      a: bool,  b: bool)
 returns ( ap: bool,  bp: bool)
-  ensures xor(ap, bp) == xor(a, b);
+  ensures xorCustom(ap, bp) == xorCustom(a, b);
 {
    havoc ap;
-   bp := xor(xor(ap, a), b);
+   bp := xorCustom(xorCustom(ap, a), b);
 }
 

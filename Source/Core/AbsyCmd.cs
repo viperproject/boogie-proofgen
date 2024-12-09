@@ -436,6 +436,13 @@ namespace Microsoft.Boogie
     {
       get
       {
+        /** Gaurav: TODO move this part to unique caller, too brittle here */
+        #region proofgen
+        AstToCfgProofGenInfo proofGenInfo = new AstToCfgProofGenInfo();
+        proofGenInfo.SetStmtList(stmtList);
+        AstToCfgProofGenInfoManager.SetCurrentProofGenInfo(proofGenInfo);
+        #endregion
+        
         Contract.Ensures(cce.NonNullElements(Contract.Result<List<Block>>()));
         if (blocks == null)
         {
@@ -446,6 +453,16 @@ namespace Microsoft.Boogie
           // Also, determine a good value for "prefix".
           CheckLegalLabels(stmtList, null, null);
 
+          #region proofgen
+          proofGenInfo.InstantiateVars();
+
+          foreach (BigBlock bb in stmtList.BigBlocks)
+          {
+            proofGenInfo.AddBigBlockBeforeNamingAnonymous(bb, true, null, null, BranchIndicator.NoGuard);
+          }
+          proofGenInfo.MakeOriginalAst(stmtList);
+          #endregion
+          
           // fill in names of anonymous blocks
           NameAnonymousBlocks(stmtList);
 
@@ -455,7 +472,7 @@ namespace Microsoft.Boogie
           if (this.errorHandler.count == startErrorCount)
           {
             // generate blocks from the big blocks
-            CreateBlocks(stmtList, null);
+            CreateBlocks(stmtList, null, proofGenInfo);
           }
         }
 
@@ -694,8 +711,9 @@ namespace Microsoft.Boogie
 
     // If the enclosing context is a loop, then "runOffTheEndLabel" is the loop head label;
     // otherwise, it is null.
-    void CreateBlocks(StmtList stmtList, string runOffTheEndLabel)
+    void CreateBlocks(StmtList stmtList, string runOffTheEndLabel, AstToCfgProofGenInfo proofGenInfo)
     {
+      
       Contract.Requires(stmtList != null);
       Contract.Requires(blocks != null);
       List<Cmd> cmdPrefixToApply = stmtList.PrefixCommands;
@@ -723,6 +741,11 @@ namespace Microsoft.Boogie
           // this BigBlock has the very same components as a Block
           Contract.Assert(b.ec == null);
           Block block = new Block(b.tok, b.LabelName, theSimpleCmds, b.tc);
+          
+          #region proofgen
+          proofGenInfo.CreateBlockPairingWithHints(b, block, BranchIndicator.NoGuard, null);
+          #endregion
+          
           blocks.Add(block);
         }
         else if (b.ec == null)
@@ -740,6 +763,10 @@ namespace Microsoft.Boogie
 
           Block block = new Block(b.tok, b.LabelName, theSimpleCmds, trCmd);
           blocks.Add(block);
+          
+          #region proofgen
+          proofGenInfo.CreateBlockPairingWithHints(b, block, BranchIndicator.NoGuard, null);
+          #endregion
         }
         else if (b.ec is BreakCmd)
         {
@@ -747,6 +774,10 @@ namespace Microsoft.Boogie
           Contract.Assert(bcmd.BreakEnclosure != null);
           Block block = new Block(b.tok, b.LabelName, theSimpleCmds, GotoSuccessor(b.ec.tok, bcmd.BreakEnclosure));
           blocks.Add(block);
+          
+          #region proofgen
+          proofGenInfo.CreateBlockPairingWithHints(b, block, BranchIndicator.NoGuard, null);
+          #endregion
         }
         else if (b.ec is WhileCmd)
         {
@@ -777,6 +808,10 @@ namespace Microsoft.Boogie
           Block block = new Block(b.tok, b.LabelName, theSimpleCmds,
             new GotoCmd(wcmd.tok, new List<String> {loopHeadLabel}));
           blocks.Add(block);
+          
+          #region proofgen
+          proofGenInfo.CreateBlockPairingWithHints(b, block, BranchIndicator.NoGuard, null);
+          #endregion
 
           // LoopHead: assert/assume loop_invariant; goto LoopDone, LoopBody;
           List<Cmd> ssHead = new List<Cmd>();
@@ -789,16 +824,42 @@ namespace Microsoft.Boogie
             new GotoCmd(wcmd.tok, new List<String> {loopDoneLabel, loopBodyLabel}));
           blocks.Add(block);
 
+          #region proofgen
+          foreach (var tuple in proofGenInfo.GetMappingLoopHeadBigBlocktoOrigLoopBigBlock())
+          {
+            if (tuple.Value == b)
+            {
+              BigBlock simpleCmdsRemoved = tuple.Key;
+              proofGenInfo.AddBigBlockToBlockPair(simpleCmdsRemoved, block);
+              proofGenInfo.AddBigBlockToHintsPair(simpleCmdsRemoved, (null, BranchIndicator.NoGuard));
+              break;
+            }
+          }
+          #endregion
+
           if (!bodyGuardTakenCareOf)
           {
             // LoopBody: assume guard; goto firstLoopBlock;
             block = new Block(wcmd.tok, loopBodyLabel, ssBody,
               new GotoCmd(wcmd.tok, new List<String> {wcmd.Body.BigBlocks[0].LabelName}));
             blocks.Add(block);
+            
+            #region proofgen
+            BigBlock loopBodyBeginning = wcmd.Body.BigBlocks[0];
+            proofGenInfo.CreateBlockPairingWithHints(loopBodyBeginning, block, BranchIndicator.GuardHolds, wcmd.Guard);
+            #endregion
           }
 
+          #region proofgen
+          foreach (BigBlock bb in wcmd.Body.BigBlocks)
+          {
+            proofGenInfo.AddBigBlockToLoopPair(bb, b);
+          }
+          proofGenInfo.AddBigBlockToHintsPair(wcmd.Body.BigBlocks.First(), (wcmd.Guard, BranchIndicator.GuardHolds));
+          #endregion
+          
           // recurse to create the blocks for the loop body
-          CreateBlocks(wcmd.Body, loopHeadLabel);
+          CreateBlocks(wcmd.Body, loopHeadLabel, proofGenInfo);
 
           // LoopDone: assume !guard; goto loopSuccessor;
           TransferCmd trCmd;
@@ -814,6 +875,38 @@ namespace Microsoft.Boogie
 
           block = new Block(wcmd.tok, loopDoneLabel, ssDone, trCmd);
           blocks.Add(block);
+          
+          #region proofgen
+          BigBlock loopDone = b.successorBigBlock;
+          BigBlock parent = stmtList.ParentBigBlock;
+          BigBlock parentCopy = null;
+          if (parent != null)
+          {
+            parentCopy = proofGenInfo.GetMappingOrigBigblockToCopyBigblock()[parent];
+          }
+          if (loopDone == null)
+          {
+            loopDone = new BigBlock(Token.NoToken, null, new List<Cmd>(), null, null);;
+            
+            //Set new loopDone Big block as a successor to 'b' in the original AST
+            b.successorBigBlock = loopDone;
+            
+            //Record loop done as a successor big block in the AST to 'b'.
+            proofGenInfo.RecordLoopDoneBlock(loopDone);
+            
+            //Add it to to all necessary mappings, in which it will be used when generating a proof.
+            proofGenInfo.AddBigBlockBeforeNamingAnonymous(loopDone, true, parent, parentCopy,  BranchIndicator.NoGuard);
+            proofGenInfo.AddBigBlockToBlockPair(loopDone, block);
+            
+            if (!proofGenInfo.GetMappingCopyBigBlockToHints().ContainsKey(loopDone))
+            {
+              proofGenInfo.AddBigBlockToHintsPair(loopDone, (wcmd.Guard, BranchIndicator.GuardFails));
+            }
+
+            BigBlock loopDoneCopy = proofGenInfo.GetMappingOrigBigblockToCopyBigblock()[loopDone];
+            proofGenInfo.AddToOriginalAst(loopDoneCopy);
+          }
+          #endregion
         }
         else
         {
@@ -854,6 +947,17 @@ namespace Microsoft.Boogie
             Block block = new Block(b.tok, predLabel, predCmds,
               new GotoCmd(ifcmd.tok, new List<String> {thenLabel, elseLabel}));
             blocks.Add(block);
+            
+            #region proofgen
+            proofGenInfo.CreateBlockPairingWithHints(b, block, BranchIndicator.NoGuard, null);
+
+            proofGenInfo.AddBigBlockToHintsPair(ifcmd.thn.BigBlocks.First(), (ifcmd.Guard, BranchIndicator.GuardHolds));
+
+            if (ifcmd.elseBlock != null)
+            {
+              proofGenInfo.AddBigBlockToHintsPair(ifcmd.elseBlock.BigBlocks.First(), (ifcmd.Guard, BranchIndicator.GuardFails)); 
+            }
+            #endregion
 
             if (!thenGuardTakenCareOf)
             {
@@ -861,10 +965,15 @@ namespace Microsoft.Boogie
               block = new Block(ifcmd.tok, thenLabel, ssThen,
                 new GotoCmd(ifcmd.tok, new List<String> {ifcmd.thn.BigBlocks[0].LabelName}));
               blocks.Add(block);
+              
+              #region proofgen
+              BigBlock thnBranchBeginning = ifcmd.thn.BigBlocks[0];
+              proofGenInfo.CreateBlockPairingWithHints(thnBranchBeginning, block, BranchIndicator.GuardHolds, ifcmd.Guard);
+              #endregion
             }
 
             // recurse to create the blocks for the then branch
-            CreateBlocks(ifcmd.thn, n == 0 ? runOffTheEndLabel : null);
+            CreateBlocks(ifcmd.thn, n == 0 ? runOffTheEndLabel : null, proofGenInfo);
 
             if (ifcmd.elseBlock != null)
             {
@@ -875,10 +984,14 @@ namespace Microsoft.Boogie
                 block = new Block(ifcmd.tok, elseLabel, ssElse,
                   new GotoCmd(ifcmd.tok, new List<String> {ifcmd.elseBlock.BigBlocks[0].LabelName}));
                 blocks.Add(block);
+                #region proofgen
+                BigBlock elseBranchBeginning = ifcmd.elseBlock.BigBlocks[0];
+                proofGenInfo.CreateBlockPairingWithHints(elseBranchBeginning, block, BranchIndicator.GuardFails, ifcmd.Guard);
+                #endregion
               }
 
               // recurse to create the blocks for the else branch
-              CreateBlocks(ifcmd.elseBlock, n == 0 ? runOffTheEndLabel : null);
+              CreateBlocks(ifcmd.elseBlock, n == 0 ? runOffTheEndLabel : null, proofGenInfo);
             }
             else if (ifcmd.elseIf != null)
             {

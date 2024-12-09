@@ -1,4 +1,5 @@
 import os
+import shutil
 import subprocess
 import time
 import sys
@@ -8,10 +9,27 @@ import re
 boogie_proofgen_bin = 'boogieproof'
 boogie_orig_bin = 'boogieorig'
 
-def adjust_and_filter(filename, output_filename):
+# copies file to output directory such that the directory structure of the source destination is kept (relative to test_dir)
+def store_file_in_output_dir(file_path, output_dir, test_dir):
+    relpath = os.path.relpath(file_path, test_dir)
+    print("Test dir: {}, File path: {}, Relative path: {}".format(test_dir, file_path, relpath))
+    target_path = os.path.join(output_dir, relpath)
+
+    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+
+    shutil.copyfile(file_path, target_path)
+
+def adjust_and_filter(filename, output_dir, test_dir):
     n_supported_success = 0
     n_supported_error = 0
     n_empty_files = 0
+
+    if(os.path.exists(output_dir)):
+        print("Error: Output dir {} exists".format(output_dir))
+        exit(1)
+
+    os.mkdir(output_dir)
+    output_filename = os.path.join(output_dir, "origin_list.txt")
 
     with open(output_filename, 'w') as output_file:
         with open(filename) as f:
@@ -48,11 +66,15 @@ def adjust_and_filter(filename, output_filename):
                     # space before 0, otherwise "10 errors" would succeed the test as well
                     if " 0 errors" in str(output) and (not ("inconclusive" in str(output))):    
                         n_supported_success += 1
-                        print("Selected " + boogie_file)
+
+                        print("Selected " + boogie_file) 
+
                         output_file.write(boogie_file+"\n")
+
+                        store_file_in_output_dir(file_path=boogie_file, output_dir=output_dir, test_dir=test_dir)
                     else:
                         n_supported_error += 1
-                        # print("Failure:" + boogie_file)
+                        print("Failure:" + boogie_file)
                 
 
         print("Found " + str(n_supported_success) + " potentially supported tests that are verified after removing all attributes.")
@@ -68,8 +90,8 @@ def main():
         required=True)
 
     parser.add_argument(
-        "-o", "--outputfile",        
-        help="Specify output file containing the list of test that are verified by Boogie and that are (potentially) supported by proof generation.",        
+        "-o", "--outputdir",        
+        help="Specify output directory containing the tests are verified by Boogie and that are (potentially) supported by proof generation.",        
         required=True)
 
     args = parser.parse_args()
@@ -78,37 +100,49 @@ def main():
         print(args.testdir + " is not a directory.")
         exit(1)
 
-    if(os.path.exists(args.outputfile)):
-        print(args.outputfile + " already exists.")
+    if(os.path.exists(args.outputdir)):
+        print(args.outputdir + " already exists.")
         exit(1)
     
+ 
     # write all Boogie test file paths that are potentially supported by proof generation into a temporary file 
     filename = time.strftime("%Y%m%d-%H%M%S")+"_potentially_supported.log"
     with open(filename, 'w') as potentially_supported_file:
         print("Starting coarse-grained selection of tests")
+
+        def file_potentially_supported_from_output(output):
+            output_split = output.splitlines()
+            return len(output_split) > 0 and output_split[0].startswith("Success:")
+
         n_candidate_files = 0
+
         for root, dirs, files in os.walk(args.testdir):
             for file in files:
                 if file.endswith('.bpl'):
                     test_file_path = os.path.join(root, file)
+                    n_candidate_files += 1
 
-                    with open(test_file_path) as f:
-                        n_candidate_files += 1
-                        # the option "/onlyCheckProofGenSupport" only performs a coarse-grained check whether
-                        # proof generation supports a file and does not generate any proofs                  
-                        output = subprocess.check_output([boogie_proofgen_bin, "/onlyCheckProofGenSupport",test_file_path]).decode(sys.stdout.encoding)
-                       
-                        output_split = output.splitlines()
-                        if len(output_split) > 0 and output_split[0].startswith("Success:"):
-                            # print(output_split[0][8:])
-                            potentially_supported_file.write(output_split[0][8:]+"\n")
+                    print(test_file_path)
+
+                    # the option "/onlyCheckProofGenSupport" only performs a coarse-grained check whether
+                    # proof generation supports a file and does not generate any proofs                  
+                    process = subprocess.Popen([boogie_proofgen_bin, "/onlyCheckProofGenSupport",test_file_path], shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    output, error = process.communicate()
+                    return_code = process.returncode
+                    
+                    if return_code == 0 and file_potentially_supported_from_output(output.decode('utf-8')):
+                        print("success")
+                        potentially_supported_file.write(test_file_path+"\n")
+                    else:
+                        print("error (return code: {}, error: {}, output: {})".format(return_code, error.decode('utf-8'), output.decode('utf-8')))
+
         print("Finished coarse-grained selection of tests")
     
     """ 
      From the identified files, select those tests that verify after removing attributes 
      (this has a side effect on the files --> attributes removed).
     """
-    adjust_and_filter(filename, args.outputfile)
+    adjust_and_filter(filename, args.outputdir, args.testdir)
 
     # remove the temporary file
     os.remove(filename)

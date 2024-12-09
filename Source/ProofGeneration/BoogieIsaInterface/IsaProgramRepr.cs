@@ -4,6 +4,7 @@
     {
         public readonly string axiomsDeclDef;
         public readonly string constantsDeclDef;
+        public readonly string uniqueConstantsDeclDef;
         public readonly string funcsDeclDef;
         public readonly string globalsDeclDef;
 
@@ -11,12 +12,14 @@
             string funcsDeclDef,
             string axiomsDeclDef,
             string globalsDeclDef,
-            string constantsDeclDef)
+            string constantsDeclDef,
+            string uniqueConstsDeclDef)
         {
             this.funcsDeclDef = funcsDeclDef;
             this.axiomsDeclDef = axiomsDeclDef;
             this.globalsDeclDef = globalsDeclDef;
             this.constantsDeclDef = constantsDeclDef;
+            this.uniqueConstantsDeclDef = uniqueConstsDeclDef;
         }
     }
 
