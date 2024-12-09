@@ -54,9 +54,10 @@ with a "null" argument where a counterexample-related argument is expected.
 
 
 ## Supported subset
-We currently support only the default Boogie options and we do not
-support any attributes (the subsumption attribute is one exception). In terms of
-language features, we currently support:
+We currently support only the default Boogie options except for the type encoding where we support only the command-line option `/typeEncoding:p` 
+(for non-monomorphizable program, the option `/typeEncoding:p` is the default option in this version of Boogie). We do not support any attributes (the subsumption attribute is one exception). 
+
+In terms of language features, we currently support:
 * Integers and booleans
 * Type constructors
 * (Polymorphic) functions
@@ -65,9 +66,6 @@ language features, we currently support:
 * Old expressions
 * Any gotos/labels/while loops that Boogie accepts for the CFG transformations (but not yet for the AST-to-CFG transformation)
 * Commands: assertions, assumptions, assignments, havocs
-
-We currently support only Boogie's type encoding in the VC given by the command-line option `/typeEncoding:p`. In particular,
-we do not support Boogie's monomorphization type encoding.
 
 ## Dependencies
 Our tool has the same dependencies as Boogie for the generation of Isabelle proofs:
@@ -114,7 +112,7 @@ In the proof generation output folder, a separate folder is created for each
 procedure. There are multiple Isabelle theory files in each folder. The main
 theorem for the procedure is the last Isabelle lemma in the file with the suffix
 `asttocfg_proof.thy` (if the AST-to-CFG or dead variable elimination is not supported,
-then the relevant file ends with `cfgtodag_proof.thy` or `cfgoptimizations_proof.thy`. 
+then the relevant file ends with `cfgtodag_proof.thy` or `cfgoptimizations_proof.thy`). 
 
 When using the tool, one currently needs to make sure that no special characters
 are used that are reserved in Isabelle (such as `#` or `'`). Moreover, for
