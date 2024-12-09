@@ -111,9 +111,9 @@ directory already exists) in which the proofs are stored.
 In the proof generation output folder, a separate folder is created for each 
 procedure. There are multiple Isabelle theory files in each folder. The main
 theorem for the procedure is the last Isabelle lemma in the file with the suffix
-`asttocfg_proof.thy` (if the AST-to-CFG or dead variable elimination is not supported,
+`asttocfg_proof.thy` in general. If the AST-to-CFG or dead variable elimination is not supported,
 then the relevant file ends with `cfgoptimizations_proof.thy` in general, but if we detect that the initial
-CFG optimizations ("basic transformations 1" above) had no effect, then the relevant file ends with `cfgtodag_proof.thy`).
+CFG optimizations ("basic transformations 1" above) had no effect, then the relevant file ends with `cfgtodag_proof.thy`.
 
 When using the tool, one currently needs to make sure that no special characters
 are used that are reserved in Isabelle (such as `#` or `'`). Moreover, for
