@@ -54,10 +54,10 @@ with a "null" argument where a counterexample-related argument is expected.
 
 
 ## Supported subset
-We currently support only the default Boogie options except for the type encoding where we support only the command-line option `/typeEncoding:p` 
-(for non-monomorphizable program, the option `/typeEncoding:p` is the default option in this version of Boogie). We do not support any attributes (the subsumption attribute is one exception). 
+We currently support only the default Boogie options and we do not support any attributes (the subsumption attribute is one exception). Moreover, we currently do not support files that contain type constructors without any polymorphism. The reason is that Boogie currently monomorphizes such programs, which leads to a different VC. If you want to try such programs, just add some polymorphic function to the program such as function test<T>(x:T):T (that does not have to be used anywhere), which forces Boogie to apply the `/typeEncoding:p` command-line option (which specifies the type encoding that we do support, but which is overriden if the program is monomorphic).
 
 In terms of language features, we currently support:
+
 * Integers and booleans
 * Type constructors
 * (Polymorphic) functions
