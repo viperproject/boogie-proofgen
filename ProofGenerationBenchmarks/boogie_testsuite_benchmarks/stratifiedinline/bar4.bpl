@@ -27,20 +27,13 @@ modifies x, y;
 }
 
 
-procedure  main() returns (b: bool)
+procedure main() returns (b: bool)
 modifies x, y;
 {
   assume x == y;
   call foo();
   if (x == y) {
     call b := bar();
-    /** MANUAL REWRITE:
     assume (if b then x+1 != y else x != y+1);
-    */
-    if(b) {
-      assume x+1 != y;
-    } else {
-      assume x != y+1;
-    }
   }
 }

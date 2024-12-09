@@ -25,26 +25,21 @@ namespace ProofGeneration.BoogieIsaInterface
 
         public IDictionary<Block, int> BlockIds { get; }
         public IDictionary<Block, OuterDecl> BlockCmdsDefs { get; }
-
         public IDictionary<Block, LemmaDecl> BlockOutEdgesLemmas { get; }
-
         public IDictionary<Block, LemmaDecl> BlockCmdsLemmas { get; }
-
+        public string getTheoryName() { return theoryName; }
         public string CmdsQualifiedName(Block b)
         {
             return QualifiedName(BlockCmdsDefs[b]);
         }
-
         public string OutEdgesMembershipLemma(Block b)
         {
             return QualifiedName(BlockOutEdgesLemmas[b]);
         }
-
         public string BlockCmdsMembershipLemma(Block b)
         {
             return QualifiedName(BlockCmdsLemmas[b]);
         }
-
         private string QualifiedName(OuterDecl decl)
         {
             return theoryName + "." + decl.Name;

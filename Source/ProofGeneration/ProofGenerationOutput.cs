@@ -6,6 +6,7 @@ using System.Linq;
 using Isabelle.Ast;
 using Isabelle.IsaPrettyPrint;
 using Microsoft.Boogie;
+using ProofGeneration.Util;
 
 namespace ProofGeneration
 {
@@ -119,7 +120,10 @@ namespace ProofGeneration
                 throw new ProofGenUnexpectedStateException("main directory not yet set");
 
             using var sw = new StreamWriter(Path.Combine(_mainDir, "ROOT"));
-            sw.WriteLine("session " + SessionName(Path.GetFileName(_mainDir)) + " = " + "Boogie_Lang + ");
+
+            var sessionName = new IsaUniqueNamer().GetName(Path.GetFileName(_mainDir));
+              
+            sw.WriteLine("session " + SessionName(sessionName) + " = " + "Boogie_Lang + ");
             
             var subDirs = Directory.EnumerateDirectories(_mainDir).ToList();
             if (subDirs.Any())

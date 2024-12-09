@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Isabelle.Ast;
 using Microsoft.Boogie;
 using ProofGeneration.BoogieIsaInterface.VariableTranslation;
+using ProofGeneration.Util;
 
 namespace ProofGeneration
 {
@@ -67,10 +68,22 @@ namespace ProofGeneration
         {
             throw new NotImplementedException();
         }
-        
+
         public Term Visit(ArithmeticCoercion arithCoercion)
         {
+          if (_args.Count != 1)
+          {
+            throw new ExprArgException();
+          }
+
+          if(arithCoercion.Coercion == ArithmeticCoercion.CoercionType.ToReal)
+          {
+            return IsaBoogieTerm.IntToReal(_args[0]);
+          }
+          else
+          {
             throw new NotImplementedException();
+          }
         }
 
         public Term Visit(IfThenElse ifThenElse)

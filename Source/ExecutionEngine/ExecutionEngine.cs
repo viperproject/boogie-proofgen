@@ -480,7 +480,7 @@ namespace Microsoft.Boogie
       if (CommandLineOptions.Clo.PrintFile != null) {
         PrintBplFile(CommandLineOptions.Clo.PrintFile, program, false, true, CommandLineOptions.Clo.PrettyPrint);
       }
-        
+
       PipelineOutcome oc = ResolveAndTypecheck(program, bplFileName, out var civlTypeChecker);
       if (oc != PipelineOutcome.ResolvedAndTypeChecked) {
         return true;
@@ -507,6 +507,41 @@ namespace Microsoft.Boogie
       CoalesceBlocks(program);
 
       Inline(program);
+
+      #region proofgen
+      foreach (var tuple in AstToCfgProofGenInfoManager.GetImplToProofGenInfo())
+      {
+        Implementation impl = tuple.Key;
+        AstToCfgProofGenInfo proofGenInfo = tuple.Value;
+      
+        IList<Block> unoptimizedBlocksCopies = proofGenInfo.GetUnoptimizedBlocks();
+        IList<Block> optimizedBlocksOriginal = impl.Blocks;
+        // FIXME: <c>optimizedBlocksOriginal<c/> does not contain desugared commands while optimized does --> too many false positives
+
+        int totalNumberOfCommandsA = 0;
+        int totalNumberOfCommandsB = 0;
+
+        foreach (var block in unoptimizedBlocksCopies)
+        {
+          totalNumberOfCommandsA += block.cmds.Count;
+        }
+
+        foreach (var block in optimizedBlocksOriginal)
+        {
+          totalNumberOfCommandsB += block.cmds.Count;
+        }
+
+        bool eliminatedDeadVars = impl.LocVars.Count != proofGenInfo.UnoptimizedLocalVars.Count;
+        proofGenInfo.EliminatedDeadVars = eliminatedDeadVars;
+        if (impl.unreachableBlocksPruned ||
+            totalNumberOfCommandsA != totalNumberOfCommandsB ||
+            unoptimizedBlocksCopies.Count != optimizedBlocksOriginal.Count ||
+            eliminatedDeadVars)
+        {
+          proofGenInfo.SetOptimizationsFlag();
+        }
+      }
+      #endregion
         
 
       #region check if proof gen potentially supports input program
@@ -814,6 +849,21 @@ namespace Microsoft.Boogie
 
       CollectModSets(program);
 
+      #region proofgen
+      foreach (var tuple in AstToCfgProofGenInfoManager.GetImplToProofGenInfo())
+      {
+        Implementation impl = tuple.Key;
+        AstToCfgProofGenInfo proofGenInfo = tuple.Value;
+        
+        proofGenInfo.UnoptimizedLocalVars = new List<Variable>(impl.LocVars);
+        
+        var predecessorMap = proofGenInfo.ComputePredecessors(impl.Blocks);
+        var unoptimizedBlockCopies = proofGenInfo.CopyBlocks(impl.Blocks , predecessorMap, true, cmd => false, out var newVarsAfterDesugaring);
+        proofGenInfo.SetUnoptimizedBlocks(unoptimizedBlockCopies);
+        proofGenInfo.SetNewVarsCFG(newVarsAfterDesugaring);
+      }
+      #endregion
+      
       civlTypeChecker = new CivlTypeChecker(program);
       civlTypeChecker.TypeCheck();
       if (civlTypeChecker.checkingContext.ErrorCount != 0)

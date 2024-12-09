@@ -56,6 +56,8 @@ namespace ProofGeneration.ProgramToVCProof
         private readonly IsaUniqueNamer stateCorresNamer = new IsaUniqueNamer();
         private readonly TypeIsaVisitor typeIsaVisitor;
 
+        private readonly IsaUniqueNamer namerForFunctions;
+
         private readonly IVariableTranslationFactory varTranslationFactory;
 
         private readonly string vcAssmName = "VC";
@@ -83,6 +85,7 @@ namespace ProofGeneration.ProgramToVCProof
             IVariableTranslationFactory varTranslationFactory,
             IVCVarFunTranslator vcVarFunTranslator,
             TypePremiseEraserFactory eraserFactory,
+            IsaUniqueNamer namerForFunctions,
             VCExpressionGenerator vcExprGen)
         {
             this.methodData = methodData;
@@ -97,6 +100,7 @@ namespace ProofGeneration.ProgramToVCProof
             this.varTranslationFactory = varTranslationFactory;
             this.vcVarFunTranslator = vcVarFunTranslator;
             this.eraserFactory = eraserFactory;
+            this.namerForFunctions = namerForFunctions;
             this.vcExprGen = vcExprGen;
             basicCmdIsaVisitor = new BasicCmdIsaVisitor(varTranslationFactory);
             typeIsaVisitor = new TypeIsaVisitor(varTranslationFactory.CreateTranslation().TypeVarTranslation);
@@ -326,7 +330,7 @@ namespace ProofGeneration.ProgramToVCProof
 
             //funtion interpretation well-formed assumption
             assms.Add(IsaBoogieTerm.FunInterpSingleWf(boogieContext.absValTyMap,
-                IsaBoogieTerm.FunDecl(f, varTranslationFactory, false), funTerm));
+                IsaBoogieTerm.FunDecl(f, varTranslationFactory, namerForFunctions, false), funTerm));
             assmLabels.Add(finterpAssmName);
 
             //type variables closed assumption

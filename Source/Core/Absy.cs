@@ -4108,13 +4108,24 @@ namespace Microsoft.Boogie
     [Rep] public StmtList StructuredStmts;
     [Rep] public List<Block /*!*/> /*!*/ Blocks;
     public Procedure Proc;
-
+    
+    #region proofgen
+    public bool unreachableBlocksPruned;
+    #endregion
+    
     // Blocks before applying passification etc.
     // Both are used only when /inline is set.
     public List<Block /*!*/> OriginalBlocks;
+    
     public List<Variable> OriginalLocVars;
+    
 
     public readonly ISet<byte[]> AssertionChecksums = new HashSet<byte[]>(ChecksumComparer.Default);
+    
+    #region  ProofGen
+    public IDictionary<Block, Block> CoalescedBlocksToTarget;
+    public IDictionary<Block, BlockCoalescingInfo> ListCoalescedBlocks;
+    #endregion 
 
     public sealed class ChecksumComparer : IEqualityComparer<byte[]>
     {
@@ -4469,6 +4480,13 @@ namespace Microsoft.Boogie
       StructuredStmts = structuredStmts;
       BigBlocksResolutionContext ctx = new BigBlocksResolutionContext(structuredStmts, errorHandler);
       Blocks = ctx.Blocks;
+
+      #region proofgen
+      IDictionary<Implementation, AstToCfgProofGenInfo> mapFromImplementationToProofGenInfo = AstToCfgProofGenInfoManager.GetImplToProofGenInfo();
+      AstToCfgProofGenInfo correspondingProofGenInfo = AstToCfgProofGenInfoManager.GetCurrentProofGenInfo();
+      mapFromImplementationToProofGenInfo.Add(this, correspondingProofGenInfo);
+      #endregion
+
       BlockPredecessorsComputed = false;
       scc = null;
       Attributes = kv;
@@ -4986,6 +5004,11 @@ namespace Microsoft.Boogie
                   {
                     // This statement sequence will never reach the end, because of this "assume false" or "assert false".
                     // Hence, it does not reach its successors.
+
+                    #region proofgen
+                    unreachableBlocksPruned = true;
+                    #endregion
+
                     b.TransferCmd = new ReturnCmd(b.TransferCmd.tok);
                     goto NEXT_BLOCK;
                   }

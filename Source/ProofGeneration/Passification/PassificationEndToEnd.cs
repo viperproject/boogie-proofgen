@@ -47,7 +47,7 @@ namespace ProofGeneration.Passification
         private IProgramAccessor programAccessor;
         private IVariableTranslation<Variable> varTranslation;
         private Term vcAssm;
-
+        
         public PassificationEndToEnd()
         {
             stateRelList = IsaCommonTerms.TermIdentFromName(stateRelListDefName);

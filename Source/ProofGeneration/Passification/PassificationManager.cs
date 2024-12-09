@@ -36,10 +36,10 @@ namespace ProofGeneration.Passification
             PassiveRelationGen relationGen,
             IProgramAccessor beforePassiveProgAccess,
             IProgramAccessor passiveProgAccess,
-            BoogieMethodData beforePassiveData,
             IVariableTranslationFactory beforePassiveFactory,
             IVariableTranslationFactory passiveFactory)
         {
+            
             var varContextName = "\\<Lambda>1";
             var passiveVarContextName = "\\<Lambda>2";
             var varContextNonPassivePassive = Tuple.Create(varContextName, passiveVarContextName);

@@ -50,7 +50,7 @@ namespace ProofGeneration.BoogieIsaInterface
             {
                 if (!(cmd is CommentCmd))
                 {
-                    cmdsIsa.AddRange(Translate(cmd));
+                  cmdsIsa.AddRange(Translate(cmd));
                 }
             }
 

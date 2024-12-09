@@ -60,12 +60,21 @@ jobs:
       # for the session so that it does not have to rechecked every time
       - name: Set up Isabelle Boogie language session
         run: |
-          echo "$PWD/foundational_boogie/BoogieLang" >> isabelle_dir/ROOTS
-          isabelle_dir/bin/isabelle build -b -j4 -d $PWD/foundational_boogie/BoogieLang Boogie_Lang
+          echo "$PWD/foundational-boogie/BoogieLang" >> isabelle_dir/ROOTS
+          isabelle_dir/bin/isabelle build -b -j4 -d $PWD/foundational-boogie/BoogieLang Boogie_Lang
           
       - name: Check external benchmark proofs
         run: |
           python3 etc/scripts/check_proofs.py --inputdir table_benchmarks_proofs --reps 1
+
+      - name: Generate CFG optimization benchmarks
+        run: |
+          BOOGIE_EXE=$(find $PWD -type f -name "BoogieDriver") 
+          python3 etc/scripts/generate_proofs.py --inputdir ProofGenerationBenchmarks/cfg_optimizations_tests --outputdir cfg_optimizations_proofs --boogieproofExe $BOOGIE_EXE
+
+      #- name: Check CFG optimization proofs
+      #  run: |
+      #    python3 etc/scripts/check_proofs.py --inputdir cfg_optimizations_proofs --reps 1
       
       - name: Generate Boogie benchmark proofs
         run: |

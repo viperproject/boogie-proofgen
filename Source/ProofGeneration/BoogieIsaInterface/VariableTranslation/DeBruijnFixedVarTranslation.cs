@@ -47,7 +47,6 @@ namespace ProofGeneration.BoogieIsaInterface.VariableTranslation
         public int VariableId(Variable variable)
         {
             if (paramsAndLocalMapping.TryGetValue(variable, out var localResult)) return localResult;
-
             if (globalsMapping.TryGetValue(variable, out var globalResult)) return globalResult;
 
             throw new ProofGenUnexpectedStateException(GetType(), "cannot find variable " + variable);

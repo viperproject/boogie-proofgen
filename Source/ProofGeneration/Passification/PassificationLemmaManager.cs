@@ -29,7 +29,7 @@ namespace ProofGeneration.Passification
 
         private readonly TermIdent normalInitState = IsaCommonTerms.TermIdentFromName("n_s");
 
-        private readonly OldVarFinder oldVarFinder = new OldVarFinder();
+        private readonly OldVarFinder oldVarFinder = new();
         private readonly IDictionary<Block, Block> origToPassiveBlock;
         private readonly IProgramAccessor passiveProgramAccessor;
 

@@ -1,4 +1,4 @@
-﻿namespace ProofGeneration
+﻿namespace ProofGeneration.PhasesUtil
 {
     public class PhasesTheories
     {
@@ -6,11 +6,15 @@
         {
             Vc,
             Passification,
-            CfgToDag
+            CfgToDag,
+            CfgOptimizations,
+            AstToCfg
         }
 
+        private readonly string astToCfgTheoryName;
         private readonly string cfgToDagTheoryName;
         private readonly string passificationTheoryName;
+        private readonly string CfgOptimizationsTheoryName;
 
         private readonly string vcPhaseTheoryName;
 
@@ -20,6 +24,8 @@
             vcPhaseTheoryName = prefix + "_vcphase_proof";
             passificationTheoryName = prefix + "_passification_proof";
             cfgToDagTheoryName = prefix + "_cfgtodag_proof";
+            CfgOptimizationsTheoryName = prefix + "_cfgoptimizations_proof";
+            astToCfgTheoryName = prefix + "_asttocfg_proof";
         }
 
         public string TheoryName(Phase phase)
@@ -32,6 +38,10 @@
                     return passificationTheoryName;
                 case Phase.CfgToDag:
                     return cfgToDagTheoryName;
+                case Phase.CfgOptimizations:
+                    return CfgOptimizationsTheoryName;
+                case Phase.AstToCfg:
+                    return astToCfgTheoryName;
                 default:
                     throw new ProofGenUnexpectedStateException("unknown phase");
             }
@@ -53,5 +63,21 @@
         {
             return qualify ? theory + "." + name : name;
         }
+
+        public static EndToEndLemmaConfig EndToEndConfig(bool generateEndToEndTheorem, Phase currentPhase, Phase phaseWithProcEndToEnd)
+        {
+          if (!generateEndToEndTheorem)
+          {
+            return EndToEndLemmaConfig.DoNotGenerate;
+          }
+
+          if (currentPhase == phaseWithProcEndToEnd)
+          {
+            return EndToEndLemmaConfig.GenerateForProcedure;
+          }
+
+          return EndToEndLemmaConfig.GenerateForEntryBlock;
+        }
+        
     }
 }

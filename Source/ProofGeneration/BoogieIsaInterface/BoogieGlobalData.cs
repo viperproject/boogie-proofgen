@@ -6,7 +6,7 @@ namespace ProofGeneration.BoogieIsaInterface
     public class BoogieGlobalData
     {
         public BoogieGlobalData(IEnumerable<Function> functions, IEnumerable<Axiom> axioms,
-            IEnumerable<Variable> globalVars, IEnumerable<Variable> constants)
+            IEnumerable<Variable> globalVars, IEnumerable<Constant> constants)
         {
             Functions = functions;
             Axioms = axioms;
@@ -17,12 +17,12 @@ namespace ProofGeneration.BoogieIsaInterface
         public IEnumerable<Function> Functions { get; }
         public IEnumerable<Axiom> Axioms { get; }
         public IEnumerable<Variable> GlobalVars { get; }
-        public IEnumerable<Variable> Constants { get; }
+        public IEnumerable<Constant> Constants { get; }
 
         public static BoogieGlobalData CreateEmpty()
         {
             return new BoogieGlobalData(new List<Function>(), new List<Axiom>(), new List<Variable>(),
-                new List<Variable>());
+                new List<Constant>());
         }
     }
 }
