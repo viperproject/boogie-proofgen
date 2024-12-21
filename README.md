@@ -38,6 +38,8 @@ Our certificate shows for each procedure that the CFG right before the CFG-to-DA
 phase is correct under the assumption of the VC. That is, we support all the 
 transformation listed above except those listed in points 1 and 2.
 
+**Note: points 1 and 2 are also handled on [a separate branch](https://github.com/viperproject/boogie-proofgen/tree/cfg_optimizations) that has not yet been merged into this default branch.**
+
 ## Modifications to the VC
 We change the VC that Boogie generates in the following ways:
 1. We do not generate any axioms about built-in types that we do not support.
